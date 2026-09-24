@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Strategic Project Discovery</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --bg0:#141413; --bg1:#1a1917; --bg2:#1f1e1c; --bg3:#252321;
+    --bd:#2e2c29; --bdb:#3a3835;
+    --tp:#faf9f5; --ts:#b0aea5; --tm:#6b6966;
+    --cyan:#00E5FF; --cyanD:rgba(0,229,255,0.12);
+    --green:#00E676; --greenD:rgba(0,230,118,0.12);
+    --amber:#FFAB40; --amberD:rgba(255,171,64,0.12);
+    --red:#FF5252; --redD:rgba(255,82,82,0.12);
+    --blue:#448AFF;
+    --mono:'Segoe UI','Segoe UI Variable',Arial,sans-serif; --sans:'Segoe UI','Segoe UI Variable',Arial,sans-serif;
+  }
+  html,body { height:100%; background:var(--bg0); color:var(--tp); font-family:var(--mono); overflow:hidden; }
+  #root { display:flex; flex-direction:column; height:100vh; }
+
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:0 20px; height:52px; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; }
+  .topbar-logo { display:flex; align-items:center; gap:10px; font-size:10px; font-weight:600; letter-spacing:0.18em; color:var(--cyan); text-transform:uppercase; }
+  .topbar-sub { font-size:10px; color:var(--tm); margin-left:4px; }
+  .topbar-right { display:flex; align-items:center; gap:16px; }
+  .live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .topbar-meta { font-size:10px; color:var(--tm); }
+  .folder-btn { padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--bd); color:var(--tm); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; border-radius:2px; transition:all 0.15s; white-space:nowrap; }
+  .folder-btn:hover { border-color:var(--bdb); color:var(--ts); }
+
+  .statsbar { display:flex; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; overflow-x:auto; }
+  .stat-item { display:flex; align-items:center; gap:10px; padding:8px 20px; border-right:1px solid var(--bd); white-space:nowrap; }
+  .stat-label { font-size:10px; color:var(--tm); letter-spacing:0.1em; text-transform:uppercase; }
+  .stat-value { font-size:15px; font-weight:700; }
+  .sv-cyan{color:var(--cyan);} .sv-green{color:var(--green);} .sv-amber{color:var(--amber);} .sv-red{color:var(--red);}
+
+  .main-layout { display:flex; flex:1; overflow:hidden; }
+
+  .sidebar { width:260px; flex-shrink:0; background:var(--bg1); border-right:1px solid var(--bd); display:flex; flex-direction:column; }
+  .sidebar-header { padding:14px 16px 10px; border-bottom:1px solid var(--bd); font-size:10px; color:var(--tm); letter-spacing:0.12em; text-transform:uppercase; }
+  .sidebar-sectors { flex:1; overflow-y:auto; padding:8px 0; }
+  .sidebar-sectors::-webkit-scrollbar{width:3px;} .sidebar-sectors::-webkit-scrollbar-thumb{background:var(--bdb);}
+  .sector-item { display:flex; align-items:flex-start; gap:10px; padding:10px 16px; cursor:pointer; border-left:2px solid transparent; transition:all 0.15s; }
+  .sector-item:hover { background:var(--bg3); }
+  .sector-item.active { background:var(--cyanD); border-left-color:var(--cyan); }
+  .sector-item.scanning { background:rgba(0,212,255,0.05); border-left-color:var(--cyan); animation:secpulse 1.5s infinite; }
+  @keyframes secpulse{0%,100%{border-left-color:var(--cyan);}50%{border-left-color:transparent;}}
+  .sector-icon { display:flex; align-items:center; flex-shrink:0; margin-top:2px; }
+  .sector-name { font-size:12px; font-weight:500; color:var(--tp); line-height:1.4; font-family:var(--sans); }
+  .sector-item.active .sector-name { color:var(--cyan); }
+  .sector-count { font-size:10px; color:var(--tm); margin-top:2px; }
+  .sector-badge { flex-shrink:0; font-size:10px; font-weight:600; background:var(--bg3); color:var(--tm); border:1px solid var(--bd); padding:2px 5px; border-radius:2px; margin-top:2px; }
+  .sector-item.active .sector-badge { background:var(--cyanD); color:var(--cyan); border-color:rgba(0,212,255,0.3); }
+  .sidebar-footer { padding:12px 16px; border-top:1px solid var(--bd); }
+  .scan-all-btn { width:100%; padding:10px; cursor:pointer; background:var(--cyanD); border:1px solid rgba(0,212,255,0.3); color:var(--cyan); font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; border-radius:2px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .scan-all-btn:hover:not(:disabled){background:rgba(0,212,255,0.2);}
+  .scan-all-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .scan-all-btn.scanning{animation:btnpulse 1s infinite;}
+  @keyframes btnpulse{0%,100%{background:var(--cyanD);}50%{background:rgba(0,212,255,0.22);}}
+
+  .content-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .toolbar { display:flex; align-items:center; gap:8px; padding:10px 16px; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; flex-wrap:wrap; }
+  .toolbar-title { font-size:12px; font-weight:600; letter-spacing:0.06em; flex:1; min-width:0; }
+  .region-select { background:var(--bg2); border:1px solid var(--bd); color:var(--ts); font-family:var(--mono); font-size:12px; padding:5px 10px; border-radius:2px; cursor:pointer; }
+  .region-select:focus{outline:none;border-color:var(--cyan);}
+  .scan-btn { padding:7px 16px; cursor:pointer; background:var(--cyanD); border:1px solid rgba(0,212,255,0.3); color:var(--cyan); font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; border-radius:2px; display:flex; align-items:center; gap:6px; }
+  .scan-btn:hover:not(:disabled){background:rgba(0,212,255,0.2);}
+  .scan-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .action-btn { padding:6px 12px; cursor:pointer; background:var(--bg3); border:1px solid var(--bd); color:var(--ts); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; border-radius:2px; display:flex; align-items:center; gap:5px; transition:all 0.15s; white-space:nowrap; }
+  .action-btn:hover{border-color:var(--bdb);color:var(--tp);}
+  .action-btn.saved{color:var(--green);border-color:rgba(0,255,157,0.3);background:var(--greenD);}
+  .load-wrap { position:relative; }
+  .load-dropdown { position:absolute; top:calc(100% + 4px); right:0; min-width:240px; background:var(--bg2); border:1px solid var(--bdb); border-radius:3px; z-index:999; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.5); }
+  .load-item { padding:9px 14px; font-size:12px; color:var(--ts); cursor:pointer; border-bottom:1px solid var(--bd); font-family:var(--sans); display:flex; flex-direction:column; gap:2px; transition:background 0.1s; }
+  .load-item:last-child{border-bottom:none;}
+  .load-item:hover{background:var(--bg3);color:var(--tp);}
+  .load-item-label{font-size:12px;color:var(--tp);}
+  .load-item-meta{font-size:10px;color:var(--tm);}
+  .load-empty{padding:12px 14px;font-size:12px;color:var(--tm);text-align:center;}
+  .spinner { width:10px; height:10px; border:1.5px solid rgba(0,212,255,0.3); border-top-color:var(--cyan); border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .tab-bar { display:flex; align-items:center; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; padding:0 16px; }
+  .tab-btn { padding:10px 16px; font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--tm); cursor:pointer; border:none; background:none; font-family:var(--mono); border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; }
+
+  .tab-btn:hover{color:var(--ts);}
+  .tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+
+  .results-area { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .results-area::-webkit-scrollbar{width:4px;} .results-area::-webkit-scrollbar-thumb{background:var(--bdb);border-radius:2px;}
+
+  .empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--tm); }
+  .empty-icon{font-size:36px;opacity:0.4;} .empty-title{font-size:12px;letter-spacing:0.1em;}
+  .empty-sub{font-size:12px;text-align:center;max-width:300px;line-height:1.6;}
+  .scanning-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;flex:1;}
+  .scan-ring{width:60px;height:60px;border-radius:50%;border:1.5px solid var(--bd);position:relative;}
+  .scan-ring::before{content:'';position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;border-top-color:var(--cyan);animation:spin 1s linear infinite;}
+  .scan-ring::after{content:'';position:absolute;inset:6px;border-radius:50%;border:1px solid var(--bdb);}
+  .scan-text{font-size:12px;color:var(--cyan);letter-spacing:0.12em;} .scan-sub{font-size:10px;color:var(--tm);}
+
+  .result-card{background:var(--bg2);border:1px solid var(--bd);border-radius:3px;overflow:hidden;cursor:pointer;transition:border-color 0.15s;animation:cardin 0.3s ease;flex-shrink:0;}
+  @keyframes cardin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .result-card:hover{border-color:var(--bdb);}
+  .result-card.expanded{border-color:var(--cyan);}
+  .card-header{padding:12px 14px;display:flex;align-items:flex-start;gap:12px;}
+  .card-score-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+  .score-ring{width:44px;height:44px;position:relative;}
+  .score-ring svg{width:44px;height:44px;transform:rotate(-90deg);}
+  .score-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
+  .score-text{font-size:10px;color:var(--tm);letter-spacing:0.06em;}
+  .card-main{flex:1;min-width:0;}
+  .card-badges{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
+  .badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:1px;letter-spacing:0.08em;text-transform:uppercase;border:1px solid;}
+  .b-pipeline{background:rgba(68,138,255,0.12);color:#448AFF;border-color:rgba(68,138,255,0.35);}
+  .b-procurement{background:rgba(255,171,64,0.12);color:#FFAB40;border-color:rgba(255,171,64,0.35);}
+  .b-live{background:rgba(0,229,255,0.12);color:#00E5FF;border-color:rgba(0,229,255,0.35);}
+  .b-awarded{background:rgba(255,82,82,0.12);color:#FF5252;border-color:rgba(255,82,82,0.35);}
+  .b-high{background:rgba(255,82,82,0.12);color:#FF5252;border-color:rgba(255,82,82,0.35);}
+  .b-medium{background:rgba(255,171,64,0.12);color:#FFAB40;border-color:rgba(255,171,64,0.35);}
+  .b-low{background:rgba(124,77,255,0.12);color:#7C4DFF;border-color:rgba(124,77,255,0.35);}
+  .b-region{background:var(--bg3);color:var(--ts);border-color:var(--bd);}
+  .card-title{font-size:15px;font-weight:600;color:var(--tp);line-height:1.4;margin-bottom:4px;font-family:var(--sans);}
+  .card-client{font-size:12px;color:var(--ts);}
+  .card-meta{display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap;}
+  .meta-item{font-size:10px;color:var(--tm);display:flex;align-items:center;gap:4px;}
+  .meta-item span{color:var(--ts);}
+  .meta-label{color:var(--tm);text-transform:uppercase;letter-spacing:0.08em;font-size:10px;}
+  .card-expand-btn{flex-shrink:0;color:var(--tm);font-size:12px;padding:4px;transition:transform 0.2s,color 0.2s;}
+  .result-card.expanded .card-expand-btn{transform:rotate(180deg);color:var(--cyan);}
+  .card-body{border-top:1px solid var(--bd);padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .detail-title{font-size:10px;color:var(--tm);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .detail-title::after{content:'';flex:1;height:1px;background:var(--bd);}
+  .detail-text{font-size:12px;color:var(--ts);line-height:1.7;font-family:var(--sans);}
+  .gia-panel{grid-column:1/-1;background:var(--bg3);border:1px solid var(--bdb);border-radius:2px;padding:12px;}
+  .gia-title{font-size:10px;color:var(--cyan);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .gia-title-icon{display:inline-block;vertical-align:middle;margin-right:4px;}
+  .gia-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .gia-item-label{font-size:10px;color:var(--tm);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;}
+  .gia-bar-wrap{height:4px;background:var(--bg0);border-radius:2px;overflow:hidden;margin-bottom:3px;}
+  .gia-bar{height:100%;border-radius:2px;}
+  .gb-high{background:#00E676;} .gb-medium{background:#FFAB40;} .gb-low{background:#FF5252;}
+  .gia-item-val{font-size:10px;color:var(--ts);}
+  .gia-verdict{margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);font-size:12px;color:var(--ts);font-family:var(--sans);line-height:1.6;}
+  .gia-verdict strong{color:var(--cyan);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;}
+  .error-msg{background:rgba(255,68,102,0.1);border:1px solid rgba(255,68,102,0.3);border-radius:2px;padding:12px 16px;font-size:12px;color:#ff4466;line-height:1.6;}
+
+  /* map */
+  .map-wrap { flex:1; position:relative; overflow:hidden; }
+  .map-wrap .leaflet-container { background:#060810; }
+  .map-legend { position:absolute; bottom:16px; left:16px; z-index:1000; background:rgba(12,15,26,0.92); border:1px solid var(--bd); border-radius:3px; padding:10px 14px; font-size:10px; color:var(--tm); letter-spacing:0.08em; text-transform:uppercase; pointer-events:none; }
+  .map-legend-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .map-legend-row:last-child{margin-bottom:0;}
+  .map-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .map-count { margin-top:8px; padding-top:8px; border-top:1px solid var(--bd); color:var(--ts); }
+
+  /* sources */
+  .sources-wrap { flex:1; overflow-y:auto; padding:16px; }
+  .sources-wrap::-webkit-scrollbar{width:4px;} .sources-wrap::-webkit-scrollbar-thumb{background:var(--bdb);}
+  .sources-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
+  .sources-title { font-size:15px; font-weight:600; letter-spacing:0.1em; color:var(--tp); }
+  .sources-subtitle { font-size:10px; color:var(--tm); margin-top:3px; }
+  .src-btn { padding:5px 12px; cursor:pointer; background:var(--bg3); border:1px solid var(--bd); color:var(--ts); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; border-radius:2px; white-space:nowrap; transition:all 0.15s; }
+  .src-btn:hover{border-color:var(--bdb);color:var(--tp);}
+  .sources-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .source-group { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; padding:12px; }
+  .source-cat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .source-cat-label { font-size:10px; color:var(--cyan); letter-spacing:0.12em; text-transform:uppercase; }
+  .source-cat-toggle { font-size:10px; color:var(--tm); background:none; border:none; cursor:pointer; font-family:var(--mono); letter-spacing:0.06em; padding:0; transition:color 0.15s; }
+  .source-cat-toggle:hover { color:var(--ts); }
+  .source-item { display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer; font-size:12px; color:var(--ts); font-family:var(--sans); border-bottom:1px solid var(--bd); transition:color 0.15s; }
+  .source-item:last-child{border-bottom:none;}
+  .source-item.active{color:var(--tp);}
+  .source-item input[type=checkbox]{ accent-color:#4a4845; cursor:pointer; flex-shrink:0; }
+
+  /* sectors tab */
+  .sectors-wrap { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .sectors-wrap::-webkit-scrollbar{width:4px;} .sectors-wrap::-webkit-scrollbar-thumb{background:var(--bdb);}
+  .sector-card { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; overflow:hidden; flex-shrink:0; }
+  .sector-card-header { padding:16px 18px 14px; border-bottom:1px solid var(--bd); }
+  .sector-card-title { font-size:15px; font-weight:600; color:var(--tp); margin-bottom:4px; font-family:var(--sans); }
+  .sector-card-tag { display:inline-block; font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; padding:2px 8px; border-radius:1px; border:1px solid; background:var(--cyanD); color:var(--cyan); border-color:rgba(217,119,87,0.3); }
+  .sector-card-body { padding:16px 18px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .sector-section-label { font-size:10px; color:var(--cyan); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:8px; }
+  .sector-section-text { font-size:12px; color:var(--ts); line-height:1.75; font-family:var(--sans); }
+  .sector-keywords { display:flex; flex-wrap:wrap; gap:6px; }
+  .sector-kw { font-size:10px; color:var(--ts); background:var(--bg3); border:1px solid var(--bd); border-radius:2px; padding:3px 8px; font-family:var(--mono); }
+
+  /* definitions tab */
+  .defs-wrap { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .defs-wrap::-webkit-scrollbar{width:4px;} .defs-wrap::-webkit-scrollbar-thumb{background:var(--bdb);}
+  .defs-section { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; overflow:hidden; flex-shrink:0; }
+  .defs-section-title { padding:12px 16px; border-bottom:1px solid var(--bd); font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--cyan); }
+  .defs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); }
+  .def-item { padding:14px 16px; border-right:1px solid var(--bd); border-bottom:1px solid var(--bd); }
+  .def-item:nth-child(n) { border-right:1px solid var(--bd); }
+  .def-name { font-size:15px; font-weight:600; color:var(--tp); margin-bottom:6px; font-family:var(--sans); display:flex; align-items:center; gap:8px; }
+  .def-chip { font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:2px 6px; border-radius:1px; border:1px solid; }
+  .def-text { font-size:12px; color:var(--ts); line-height:1.75; font-family:var(--sans); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css"/>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css"/>
+<script>
+const { useState, useCallback, useEffect, useRef } = React;
+
+// Lucide icon helper — lucide UMD exposes icons as arrays of [tag, attrs] tuples
+function Icon({name, size=14, strokeWidth=1.75, style}) {
+  const L = window.lucide;
+  if (!L) return null;
+  const data = L[name];
+  if (!Array.isArray(data)) return null;
+  return React.createElement('svg', {
+    xmlns:'http://www.w3.org/2000/svg',
+    width:size, height:size,
+    viewBox:'0 0 24 24',
+    fill:'none',
+    stroke:'currentColor',
+    strokeWidth,
+    strokeLinecap:'round',
+    strokeLinejoin:'round',
+    style:{display:'inline-block',verticalAlign:'middle',flexShrink:0,...(style||{})}
+  }, ...data.map(([tag,attrs],i)=>React.createElement(tag,{key:i,...attrs})));
+}
+// Phosphor icon helper (web font via <i> tag)
+function Ph({name, size=14, style}) {
+  return React.createElement('i', {className:`ph ph-${name}`, style:{fontSize:size,lineHeight:1,display:'inline-block',verticalAlign:'middle',flexShrink:0,...(style||{})}});
+}
+
+const GEMINI_KEY = "YOUR_GEMINI_API_KEY";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+const SECTORS = [
+  { id:'hsr',  name:'High Speed Rail & Metro',              icon:'TramFront' },
+  { id:'tod',  name:'Transit-Oriented Development',         icon:'MapPin' },
+  { id:'urb',  name:'Urban Regeneration & Masterplanning',  icon:'Building2' },
+  { id:'dc',   name:'Data Centres & Tech Infrastructure',   icon:'Server' },
+  { id:'port', name:'Ports & Maritime Infrastructure',      icon:'Anchor' },
+  { id:'mega', name:'Mega Projects & National Programmes',  icon:'Landmark' },
+  { id:'env',  name:'Energy, Water & Sustainability',       icon:'Leaf' },
+];
+const REGIONS = ['Global','UK & Europe','Middle East','Asia Pacific','Americas','Africa'];
+
+const ALL_SOURCES = [
+  // UK & Ireland Government
+  { id:'fat',    name:'Find a Tender',                          cat:'UK & Ireland Government' },
+  { id:'cf',     name:'Contracts Finder',                       cat:'UK & Ireland Government' },
+  { id:'pcs',    name:'Public Contracts Scotland',              cat:'UK & Ireland Government' },
+  { id:'s2w',    name:'Sell2Wales',                             cat:'UK & Ireland Government' },
+  { id:'eti',    name:'eTenders Ireland',                       cat:'UK & Ireland Government' },
+  { id:'nibcts', name:'eTendersNI (Northern Ireland)',          cat:'UK & Ireland Government' },
+  { id:'coj',    name:'Crown Commercial Service',               cat:'UK & Ireland Government' },
+  // European Government
+  { id:'ted',    name:'TED / OJEU',                             cat:'European Government' },
+  { id:'boamp',  name:'BOAMP (France)',                         cat:'European Government' },
+  { id:'dtvp',   name:'DTVP (Germany)',                         cat:'European Government' },
+  { id:'placsp', name:'PLACSP (Spain)',                         cat:'European Government' },
+  { id:'mepa',   name:'MePA (Italy)',                           cat:'European Government' },
+  { id:'tender', name:'TenderNed (Netherlands)',                cat:'European Government' },
+  { id:'doffin', name:'Doffin (Norway)',                        cat:'European Government' },
+  { id:'hilma',  name:'HILMA (Finland)',                        cat:'European Government' },
+  { id:'udbud',  name:'Udbud.dk (Denmark)',                     cat:'European Government' },
+  { id:'simap',  name:'simap.ch (Switzerland)',                 cat:'European Government' },
+  { id:'ekap',   name:'EKAP (Turkey)',                          cat:'European Government' },
+  { id:'aussch', name:'Ausschreibungen.at (Austria)',           cat:'European Government' },
+  { id:'bep',    name:'Belgium e-Procurement',                  cat:'European Government' },
+  { id:'base',   name:'BASE (Portugal)',                        cat:'European Government' },
+  { id:'visma',  name:'Visma Opic (Sweden)',                    cat:'European Government' },
+  { id:'pzp',    name:'Portal ZZP (Poland)',                    cat:'European Government' },
+  { id:'uvo',    name:'UVO (Slovakia)',                         cat:'European Government' },
+  { id:'isvzus', name:'ISVZ (Czech Republic)',                  cat:'European Government' },
+  { id:'ekr',    name:'EKR (Hungary)',                          cat:'European Government' },
+  { id:'riha',   name:'RIHA (Estonia)',                         cat:'European Government' },
+  { id:'iub',    name:'IUB (Latvia)',                           cat:'European Government' },
+  { id:'cvpis',  name:'CVP IS (Lithuania)',                     cat:'European Government' },
+  { id:'khimdi', name:'KHIMDI (Greece)',                        cat:'European Government' },
+  { id:'eojn',   name:'EOJN (Croatia)',                         cat:'European Government' },
+  { id:'ejn',    name:'E-JN (Slovenia)',                        cat:'European Government' },
+  { id:'ppbg',   name:'PPB (Bulgaria)',                         cat:'European Government' },
+  { id:'seap',   name:'SEAP (Romania)',                         cat:'European Government' },
+  { id:'pp',     name:'Procurement Portal (Luxembourg)',        cat:'European Government' },
+  { id:'etendr', name:'e-Tendering (Malta)',                    cat:'European Government' },
+  { id:'epps',   name:'e-PPS (Cyprus)',                         cat:'European Government' },
+  { id:'ionline',name:'iOnline (Iceland)',                      cat:'European Government' },
+  // Americas - USA Federal
+  { id:'sam',    name:'SAM.gov (USA)',                          cat:'Americas - USA Federal' },
+  { id:'fbo',    name:'USASpending.gov',                        cat:'Americas - USA Federal' },
+  { id:'grants', name:'Grants.gov',                             cat:'Americas - USA Federal' },
+  { id:'fedbiz', name:'FedBizOpps Archive',                     cat:'Americas - USA Federal' },
+  { id:'usdot',  name:'US DOT Procurement',                     cat:'Americas - USA Federal' },
+  { id:'fta',    name:'FTA (Federal Transit Administration)',   cat:'Americas - USA Federal' },
+  { id:'fhwa',   name:'FHWA (Federal Highway Administration)', cat:'Americas - USA Federal' },
+  { id:'fra',    name:'FRA (Federal Railroad Administration)', cat:'Americas - USA Federal' },
+  { id:'faa',    name:'FAA (Federal Aviation Administration)', cat:'Americas - USA Federal' },
+  { id:'ace',    name:'US Army Corps of Engineers',             cat:'Americas - USA Federal' },
+  { id:'navfac', name:'NAVFAC (Navy Facilities)',               cat:'Americas - USA Federal' },
+  { id:'afcec',  name:'AFCEC (Air Force Civil Engineering)',    cat:'Americas - USA Federal' },
+  { id:'epa',    name:'US EPA Procurement',                     cat:'Americas - USA Federal' },
+  { id:'doi',    name:'US DOI (Interior)',                      cat:'Americas - USA Federal' },
+  // US State Procurement Portals
+  { id:'al',     name:'Alabama Bid Express',                    cat:'US State Portals' },
+  { id:'ak',     name:'Alaska IRIS',                            cat:'US State Portals' },
+  { id:'az',     name:'Arizona ProcureAZ',                      cat:'US State Portals' },
+  { id:'ar',     name:'Arkansas eMarketplace',                  cat:'US State Portals' },
+  { id:'ca',     name:'California eProcure',                    cat:'US State Portals' },
+  { id:'co',     name:'Colorado BIDS',                          cat:'US State Portals' },
+  { id:'ct',     name:'Connecticut BizNet',                     cat:'US State Portals' },
+  { id:'de',     name:'Delaware Bid Board',                     cat:'US State Portals' },
+  { id:'fl',     name:'Florida MyFloridaMarketPlace',           cat:'US State Portals' },
+  { id:'ga',     name:'Georgia Team Georgia Marketplace',       cat:'US State Portals' },
+  { id:'hi',     name:'Hawaii HIePRO',                          cat:'US State Portals' },
+  { id:'id',     name:'Idaho Purchasing',                       cat:'US State Portals' },
+  { id:'il',     name:'Illinois BEP',                           cat:'US State Portals' },
+  { id:'in',     name:'Indiana IntelliSource',                  cat:'US State Portals' },
+  { id:'ia',     name:'Iowa BIDMN',                             cat:'US State Portals' },
+  { id:'ks',     name:'Kansas BidNet',                          cat:'US State Portals' },
+  { id:'ky',     name:'Kentucky eProcurement',                  cat:'US State Portals' },
+  { id:'la',     name:'Louisiana LaPAC',                        cat:'US State Portals' },
+  { id:'me',     name:'Maine BidNet',                           cat:'US State Portals' },
+  { id:'md',     name:'Maryland eMarylandMarketplace',          cat:'US State Portals' },
+  { id:'ma',     name:'Massachusetts COMMBUYS',                 cat:'US State Portals' },
+  { id:'mi',     name:'Michigan SIGMA',                         cat:'US State Portals' },
+  { id:'mn',     name:'Minnesota eMarketplace',                 cat:'US State Portals' },
+  { id:'ms',     name:'Mississippi PBS',                        cat:'US State Portals' },
+  { id:'mo',     name:'Missouri MissouriBUYS',                  cat:'US State Portals' },
+  { id:'mt',     name:'Montana MT SIPS',                        cat:'US State Portals' },
+  { id:'ne',     name:'Nebraska eQuote',                        cat:'US State Portals' },
+  { id:'nv',     name:'Nevada eProcurement',                    cat:'US State Portals' },
+  { id:'nh',     name:'New Hampshire PurchaseNH',               cat:'US State Portals' },
+  { id:'nj',     name:'New Jersey NJSTART',                     cat:'US State Portals' },
+  { id:'nm',     name:'New Mexico NMBid',                       cat:'US State Portals' },
+  { id:'ny',     name:'New York NY Contract Reporter',          cat:'US State Portals' },
+  { id:'nc',     name:'North Carolina NC eProcurement',         cat:'US State Portals' },
+  { id:'nd',     name:'North Dakota Bid Express',               cat:'US State Portals' },
+  { id:'oh',     name:'Ohio OhioBuys',                          cat:'US State Portals' },
+  { id:'ok',     name:'Oklahoma OKDocs BidSheet',               cat:'US State Portals' },
+  { id:'or',     name:'Oregon Oregon Buys',                     cat:'US State Portals' },
+  { id:'pa',     name:'Pennsylvania PA eMarketplace',           cat:'US State Portals' },
+  { id:'ri',     name:'Rhode Island RIPS',                      cat:'US State Portals' },
+  { id:'sc',     name:'South Carolina SciQuest',                cat:'US State Portals' },
+  { id:'sd',     name:'South Dakota BidSync',                   cat:'US State Portals' },
+  { id:'tn',     name:'Tennessee Edison System',                cat:'US State Portals' },
+  { id:'tx',     name:'Texas ESBD',                             cat:'US State Portals' },
+  { id:'ut',     name:'Utah Utah Procurement',                  cat:'US State Portals' },
+  { id:'vt',     name:'Vermont VSPS',                           cat:'US State Portals' },
+  { id:'va',     name:'Virginia eVA',                           cat:'US State Portals' },
+  { id:'wa',     name:'Washington WEBS',                        cat:'US State Portals' },
+  { id:'wv',     name:'West Virginia WV Oasis',                 cat:'US State Portals' },
+  { id:'wi',     name:'Wisconsin VendorNet',                    cat:'US State Portals' },
+  { id:'wy',     name:'Wyoming Pro*West',                       cat:'US State Portals' },
+  // Canadian Provincial Portals
+  { id:'bcbid',  name:'BC Bid (British Columbia)',              cat:'Canadian Provincial' },
+  { id:'ab',     name:'Alberta Purchasing Connection',          cat:'Canadian Provincial' },
+  { id:'sk',     name:'Saskatchewan SaskTenders',               cat:'Canadian Provincial' },
+  { id:'mb',     name:'Manitoba BidCentral',                    cat:'Canadian Provincial' },
+  { id:'on',     name:'Ontario Tenders Portal',                 cat:'Canadian Provincial' },
+  { id:'qc',     name:'SEAO Québec',                            cat:'Canadian Provincial' },
+  { id:'nb',     name:'New Brunswick Tenders',                  cat:'Canadian Provincial' },
+  { id:'ns',     name:'Nova Scotia Procurement Portal',         cat:'Canadian Provincial' },
+  { id:'pei',    name:'PEI Tenders',                            cat:'Canadian Provincial' },
+  { id:'nl',     name:'Newfoundland & Labrador Procurement',    cat:'Canadian Provincial' },
+  { id:'nwt',    name:'Northwest Territories Tenders',          cat:'Canadian Provincial' },
+  { id:'yt',     name:'Yukon GETS',                             cat:'Canadian Provincial' },
+  { id:'nu',     name:'Nunavut Tender Notices',                 cat:'Canadian Provincial' },
+  // Latin America & Caribbean
+  { id:'merx',   name:'MERX Canada',                            cat:'Latin America & Caribbean' },
+  { id:'compras',name:'ComprasNet (Brazil)',                     cat:'Latin America & Caribbean' },
+  { id:'compranet',name:'CompraNet (Mexico)',                   cat:'Latin America & Caribbean' },
+  { id:'chilecp',name:'ChileCompra',                            cat:'Latin America & Caribbean' },
+  { id:'seace',  name:'SEACE (Peru)',                           cat:'Latin America & Caribbean' },
+  { id:'secop',  name:'SECOP (Colombia)',                       cat:'Latin America & Caribbean' },
+  { id:'compr',  name:'Argentina Contrat.ar',                   cat:'Latin America & Caribbean' },
+  { id:'guatecp',name:'Guatecompras (Guatemala)',               cat:'Latin America & Caribbean' },
+  { id:'honbid', name:'HonduCompras',                           cat:'Latin America & Caribbean' },
+  { id:'nica',   name:'SISCAE (Nicaragua)',                     cat:'Latin America & Caribbean' },
+  { id:'sicop',  name:'SICOP (Costa Rica)',                     cat:'Latin America & Caribbean' },
+  { id:'panama', name:'PanamaCompra',                           cat:'Latin America & Caribbean' },
+  { id:'dncp',   name:'DNCP (Paraguay)',                        cat:'Latin America & Caribbean' },
+  { id:'sncp',   name:'SNCP (Ecuador)',                         cat:'Latin America & Caribbean' },
+  { id:'sicces', name:'SICCES (El Salvador)',                   cat:'Latin America & Caribbean' },
+  { id:'bncp',   name:'BNCP (Bolivia)',                         cat:'Latin America & Caribbean' },
+  { id:'ttbid',  name:'Trinidad & Tobago eTenders',             cat:'Latin America & Caribbean' },
+  { id:'jambid', name:'Jamaica GOJ eProcurement',               cat:'Latin America & Caribbean' },
+  { id:'bbarb',  name:'Barbados Procurement',                   cat:'Latin America & Caribbean' },
+  { id:'guyanas',name:'Guyana National Procurement',            cat:'Latin America & Caribbean' },
+  // APAC - Australasia
+  { id:'aust',   name:'AusTender',                              cat:'APAC - Australasia' },
+  { id:'nz',     name:'GETS New Zealand',                       cat:'APAC - Australasia' },
+  { id:'nswbuy', name:'NSW Government Tenders',                 cat:'APAC - Australasia' },
+  { id:'vicbuy', name:'Victoria Tenders (VendorPanel)',         cat:'APAC - Australasia' },
+  { id:'qldtnd', name:'QTenders (Queensland)',                  cat:'APAC - Australasia' },
+  { id:'watnd',  name:'Tenders WA (Western Australia)',         cat:'APAC - Australasia' },
+  { id:'satnd',  name:'SA Tenders (South Australia)',           cat:'APAC - Australasia' },
+  { id:'tastnd', name:'TasTenders (Tasmania)',                   cat:'APAC - Australasia' },
+  { id:'acttnd', name:'ACT Government Tenders',                 cat:'APAC - Australasia' },
+  { id:'nttnd',  name:'NT Government Tenders',                  cat:'APAC - Australasia' },
+  // APAC - Asia
+  { id:'gebiz',  name:'GeBIZ (Singapore)',                      cat:'APAC - Asia' },
+  { id:'koneps', name:'KONEPS (South Korea)',                    cat:'APAC - Asia' },
+  { id:'eperolehan',name:'ePerolehan (Malaysia)',               cat:'APAC - Asia' },
+  { id:'philgeps',name:'PhilGEPS (Philippines)',                cat:'APAC - Asia' },
+  { id:'gem',    name:'India GeM Portal',                       cat:'APAC - Asia' },
+  { id:'niti',   name:'NITI Aayog India',                       cat:'APAC - Asia' },
+  { id:'nhai',   name:'NHAI (India Highways)',                  cat:'APAC - Asia' },
+  { id:'hksd',   name:'Hong Kong Supply & Dispatch',            cat:'APAC - Asia' },
+  { id:'jetro',  name:'JETRO (Japan)',                          cat:'APAC - Asia' },
+  { id:'gppo',   name:'Thailand Government Procurement',        cat:'APAC - Asia' },
+  { id:'vnbid',  name:'Vietnam National e-Procurement',         cat:'APAC - Asia' },
+  { id:'inaproc',name:'Indonesia Pengadaan (LKPP)',             cat:'APAC - Asia' },
+  { id:'bdgpp',  name:'Bangladesh CPTU',                        cat:'APAC - Asia' },
+  { id:'pprapk', name:'PPRA (Pakistan)',                        cat:'APAC - Asia' },
+  { id:'slbid',  name:'ICTAD (Sri Lanka)',                      cat:'APAC - Asia' },
+  { id:'cambodia',name:'Cambodia MEF eProcurement',             cat:'APAC - Asia' },
+  { id:'mynmar', name:'Myanmar Procurement Portal',             cat:'APAC - Asia' },
+  { id:'mongbid',name:'Mongolia GPCT',                          cat:'APAC - Asia' },
+  { id:'kazbid', name:'Kazakhstan ProZorro',                    cat:'APAC - Asia' },
+  { id:'uzbbid', name:'Uzbekistan E-Xarid',                     cat:'APAC - Asia' },
+  // Middle East Government
+  { id:'gcc',    name:'GCC Tenders Portal',                     cat:'Middle East Government' },
+  { id:'neom',   name:'NEOM / ROSHN Procurement',               cat:'Middle East Government' },
+  { id:'uaegp',  name:'UAE Government Procurement',             cat:'Middle East Government' },
+  { id:'etimad', name:'Etimad (Saudi Arabia)',                  cat:'Middle East Government' },
+  { id:'mofq',   name:'MOF Tenders (Qatar)',                    cat:'Middle East Government' },
+  { id:'ktenders',name:'Kuwait Central Tenders Committee',      cat:'Middle East Government' },
+  { id:'tender_bh',name:'Bahrain Tender Board',                 cat:'Middle East Government' },
+  { id:'oman',   name:'Oman Tender Board',                      cat:'Middle East Government' },
+  { id:'jordbid',name:'Jordan Government Procurement',          cat:'Middle East Government' },
+  { id:'lebebid',name:'Lebanon CDR Procurement',                cat:'Middle East Government' },
+  { id:'iraqbid',name:'Iraq Ministry Tenders',                  cat:'Middle East Government' },
+  { id:'israelbid',name:'Israel Gov Procurement Portal',        cat:'Middle East Government' },
+  { id:'palbid', name:'Palestine PPPA',                         cat:'Middle East Government' },
+  { id:'yemenbid',name:'Yemen NPA Procurement',                 cat:'Middle East Government' },
+  // Africa Government
+  { id:'sa',     name:'South Africa eTender Portal',            cat:'Africa Government' },
+  { id:'kenya',  name:'Kenya eGP',                              cat:'Africa Government' },
+  { id:'pprang', name:'PPA Ghana',                              cat:'Africa Government' },
+  { id:'maroc',  name:'Marchés Publics (Morocco)',              cat:'Africa Government' },
+  { id:'egypt',  name:'Egypt Government Procurement',           cat:'Africa Government' },
+  { id:'algerie',name:'Marchés Publics (Algeria)',              cat:'Africa Government' },
+  { id:'tunis',  name:'Tunisie Marchés Publics',                cat:'Africa Government' },
+  { id:'nigeria',name:'BPP Nigeria e-Procurement',              cat:'Africa Government' },
+  { id:'tanzania',name:'Tanzania PPRA Portal',                  cat:'Africa Government' },
+  { id:'uganda', name:'Uganda PPDA Portal',                     cat:'Africa Government' },
+  { id:'ethiopia',name:'Ethiopia PPPO',                         cat:'Africa Government' },
+  { id:'rwanda', name:'Rwanda e-Procurement',                   cat:'Africa Government' },
+  { id:'zambia', name:'Zambia ZPPA',                            cat:'Africa Government' },
+  { id:'zimb',   name:'Zimbabwe PRAZ',                          cat:'Africa Government' },
+  { id:'bots',   name:'Botswana PPADB',                         cat:'Africa Government' },
+  { id:'moz',    name:'Mozambique CIP',                         cat:'Africa Government' },
+  { id:'angola', name:'Angola SNCP',                            cat:'Africa Government' },
+  { id:'camr',   name:'Cameroon ARMP',                          cat:'Africa Government' },
+  { id:'coted',  name:"Côte d'Ivoire Marchés",                  cat:'Africa Government' },
+  { id:'senegal',name:'Sénégal DCMP',                           cat:'Africa Government' },
+  { id:'mali',   name:'Mali DGMP',                              cat:'Africa Government' },
+  { id:'burkina',name:'Burkina Faso DGCMEF',                    cat:'Africa Government' },
+  { id:'niger',  name:'Niger ARMP',                             cat:'Africa Government' },
+  { id:'sudan',  name:'Sudan OCAP',                             cat:'Africa Government' },
+  { id:'liberia',name:'Liberia PPCC',                           cat:'Africa Government' },
+  // Multilateral Development Banks
+  { id:'wb',     name:'World Bank Procurement',                 cat:'Multilateral Banks' },
+  { id:'adb',    name:'Asian Development Bank',                 cat:'Multilateral Banks' },
+  { id:'afdb',   name:'African Development Bank',               cat:'Multilateral Banks' },
+  { id:'idb',    name:'Inter-American Dev Bank',                cat:'Multilateral Banks' },
+  { id:'ebrd',   name:'EBRD',                                   cat:'Multilateral Banks' },
+  { id:'eib',    name:'European Investment Bank',               cat:'Multilateral Banks' },
+  { id:'ungm',   name:'UN Global Marketplace',                  cat:'Multilateral Banks' },
+  { id:'aiib',   name:'AIIB',                                   cat:'Multilateral Banks' },
+  { id:'ifc',    name:'IFC / World Bank Group',                 cat:'Multilateral Banks' },
+  { id:'isdb',   name:'Islamic Development Bank',               cat:'Multilateral Banks' },
+  { id:'ndb',    name:'New Development Bank (BRICS)',           cat:'Multilateral Banks' },
+  { id:'caf',    name:'CAF (Latin America Dev Bank)',           cat:'Multilateral Banks' },
+  { id:'eadb',   name:'East African Dev Bank',                  cat:'Multilateral Banks' },
+  { id:'boad',   name:'BOAD (West Africa Dev Bank)',            cat:'Multilateral Banks' },
+  { id:'fonplata',name:'FONPLATA (River Plate Basin)',          cat:'Multilateral Banks' },
+  { id:'cabei',  name:'CABEI (Central America)',                cat:'Multilateral Banks' },
+  { id:'ecowasb',name:'ECOWAS Community Bank',                  cat:'Multilateral Banks' },
+  { id:'cdb',    name:'Caribbean Development Bank',             cat:'Multilateral Banks' },
+  // Development & Aid Agencies
+  { id:'jica',   name:'JICA (Japan)',                           cat:'Development & Aid Agencies' },
+  { id:'kfw',    name:'KfW Development Bank',                   cat:'Development & Aid Agencies' },
+  { id:'afd',    name:'AFD (France)',                           cat:'Development & Aid Agencies' },
+  { id:'giz',    name:'GIZ (Germany)',                          cat:'Development & Aid Agencies' },
+  { id:'fcdo',   name:'FCDO (UK)',                              cat:'Development & Aid Agencies' },
+  { id:'usaid',  name:'USAID Procurement',                      cat:'Development & Aid Agencies' },
+  { id:'mcc',    name:'Millennium Challenge Corporation',       cat:'Development & Aid Agencies' },
+  { id:'dfc',    name:'US DFC',                                 cat:'Development & Aid Agencies' },
+  { id:'bii',    name:'British International Investment',       cat:'Development & Aid Agencies' },
+  { id:'koica',  name:'KOICA (South Korea)',                    cat:'Development & Aid Agencies' },
+  { id:'ausaid', name:'DFAT Australia',                         cat:'Development & Aid Agencies' },
+  { id:'sida',   name:'Sida (Sweden)',                          cat:'Development & Aid Agencies' },
+  { id:'danida', name:'Danida (Denmark)',                       cat:'Development & Aid Agencies' },
+  { id:'norad',  name:'Norad (Norway)',                         cat:'Development & Aid Agencies' },
+  { id:'dgis',   name:'DGIS (Netherlands)',                     cat:'Development & Aid Agencies' },
+  { id:'aics',   name:'AICS (Italy)',                           cat:'Development & Aid Agencies' },
+  { id:'enabel', name:'Enabel (Belgium)',                       cat:'Development & Aid Agencies' },
+  { id:'eba',    name:'EBA (Austria Dev Agency)',               cat:'Development & Aid Agencies' },
+  { id:'simest', name:'SIMEST (Italy Export)',                  cat:'Development & Aid Agencies' },
+  { id:'proparco',name:'Proparco (France)',                     cat:'Development & Aid Agencies' },
+  // UN Agencies
+  { id:'unops',  name:'UNOPS',                                  cat:'UN Agencies' },
+  { id:'unhab',  name:'UN-Habitat',                             cat:'UN Agencies' },
+  { id:'undp',   name:'UNDP Procurement',                       cat:'UN Agencies' },
+  { id:'unicef', name:'UNICEF Supply',                          cat:'UN Agencies' },
+  { id:'wfp',    name:'WFP Procurement',                        cat:'UN Agencies' },
+  { id:'who',    name:'WHO Procurement',                        cat:'UN Agencies' },
+  { id:'unece',  name:'UNECE',                                  cat:'UN Agencies' },
+  { id:'unep',   name:'UNEP Procurement',                       cat:'UN Agencies' },
+  { id:'uncdf',  name:'UNCDF',                                  cat:'UN Agencies' },
+  { id:'unido',  name:'UNIDO',                                  cat:'UN Agencies' },
+  // National Infrastructure Agencies
+  { id:'hs2',    name:'HS2 Ltd',                                cat:'National Infrastructure Agencies' },
+  { id:'nrail',  name:'Network Rail',                           cat:'National Infrastructure Agencies' },
+  { id:'tfl',    name:'Transport for London',                   cat:'National Infrastructure Agencies' },
+  { id:'nhighways',name:'National Highways (UK)',               cat:'National Infrastructure Agencies' },
+  { id:'infrons',name:'Infrastructure NSW',                     cat:'National Infrastructure Agencies' },
+  { id:'infraon',name:'Infrastructure Ontario',                cat:'National Infrastructure Agencies' },
+  { id:'lta',    name:'LTA Singapore',                         cat:'National Infrastructure Agencies' },
+  { id:'mtr',    name:'MTR Corporation Procurement',           cat:'National Infrastructure Agencies' },
+  { id:'uknip',  name:'UK National Infrastructure Pipeline',   cat:'National Infrastructure Agencies' },
+  { id:'auspl',  name:'Australian Infrastructure Priority List',cat:'National Infrastructure Agencies' },
+  { id:'infravic',name:'Major Road Projects Victoria',         cat:'National Infrastructure Agencies' },
+  { id:'qldmain',name:'Queensland Major Projects',             cat:'National Infrastructure Agencies' },
+  { id:'tmr',    name:'TMR Queensland',                        cat:'National Infrastructure Agencies' },
+  { id:'waroads',name:'Main Roads WA',                         cat:'National Infrastructure Agencies' },
+  { id:'nzta',   name:'Waka Kotahi NZTA',                      cat:'National Infrastructure Agencies' },
+  { id:'sanral', name:'SANRAL (South Africa)',                  cat:'National Infrastructure Agencies' },
+  { id:'kenyarw',name:'Kenya Roads Board',                      cat:'National Infrastructure Agencies' },
+  { id:'indroads',name:'India NHDP / NHAI',                    cat:'National Infrastructure Agencies' },
+  { id:'caltrans',name:'Caltrans (California)',                 cat:'National Infrastructure Agencies' },
+  { id:'txdot',  name:'TxDOT (Texas)',                         cat:'National Infrastructure Agencies' },
+  { id:'fdot',   name:'FDOT (Florida)',                        cat:'National Infrastructure Agencies' },
+  { id:'nydot',  name:'NYSDOT',                                cat:'National Infrastructure Agencies' },
+  { id:'ildot',  name:'IDOT (Illinois)',                       cat:'National Infrastructure Agencies' },
+  { id:'penndot',name:'PennDOT (Pennsylvania)',                cat:'National Infrastructure Agencies' },
+  { id:'wadot',  name:'WSDOT (Washington)',                    cat:'National Infrastructure Agencies' },
+  { id:'gadot',  name:'GDOT (Georgia)',                        cat:'National Infrastructure Agencies' },
+  { id:'mndot',  name:'MnDOT (Minnesota)',                     cat:'National Infrastructure Agencies' },
+  { id:'ohdot',  name:'ODOT (Ohio)',                           cat:'National Infrastructure Agencies' },
+  { id:'vadot',  name:'VDOT (Virginia)',                       cat:'National Infrastructure Agencies' },
+  { id:'ncdot',  name:'NCDOT (North Carolina)',                cat:'National Infrastructure Agencies' },
+  // Rail & Metro Operators
+  { id:'sncf',   name:'SNCF Réseau (France)',                  cat:'Rail & Metro Operators' },
+  { id:'dbnetz', name:'DB InfraGO (Germany)',                  cat:'Rail & Metro Operators' },
+  { id:'prorl',  name:'ProRail (Netherlands)',                  cat:'Rail & Metro Operators' },
+  { id:'infrabel',name:'Infrabel (Belgium)',                   cat:'Rail & Metro Operators' },
+  { id:'rfi',    name:'RFI (Italy)',                           cat:'Rail & Metro Operators' },
+  { id:'adifae', name:'Adif (Spain)',                          cat:'Rail & Metro Operators' },
+  { id:'sbbch',  name:'SBB Infrastructure (Switzerland)',      cat:'Rail & Metro Operators' },
+  { id:'oebb',   name:'ÖBB Infrastruktur (Austria)',           cat:'Rail & Metro Operators' },
+  { id:'pkpplk', name:'PKP PLK (Poland)',                      cat:'Rail & Metro Operators' },
+  { id:'banedmk',name:'Banedanmark (Denmark)',                 cat:'Rail & Metro Operators' },
+  { id:'trafikv',name:'Trafikverket (Sweden)',                 cat:'Rail & Metro Operators' },
+  { id:'bane',   name:'Bane NOR (Norway)',                     cat:'Rail & Metro Operators' },
+  { id:'amtrak', name:'Amtrak',                                cat:'Rail & Metro Operators' },
+  { id:'wmata',  name:'WMATA (Washington DC Metro)',           cat:'Rail & Metro Operators' },
+  { id:'mbta',   name:'MBTA (Boston)',                         cat:'Rail & Metro Operators' },
+  { id:'bart',   name:'BART (San Francisco Bay Area)',         cat:'Rail & Metro Operators' },
+  { id:'ctarail',name:'CTA (Chicago Transit Authority)',       cat:'Rail & Metro Operators' },
+  { id:'mtany',  name:'MTA New York',                         cat:'Rail & Metro Operators' },
+  { id:'lametro',name:'LA Metro',                             cat:'Rail & Metro Operators' },
+  { id:'soundtr',name:'Sound Transit (Seattle)',               cat:'Rail & Metro Operators' },
+  { id:'dartdal',name:'DART (Dallas)',                         cat:'Rail & Metro Operators' },
+  { id:'lacmta', name:'LACMTA (Los Angeles)',                  cat:'Rail & Metro Operators' },
+  { id:'rtdden', name:'RTD (Denver)',                          cat:'Rail & Metro Operators' },
+  { id:'trimet', name:'TriMet (Portland)',                     cat:'Rail & Metro Operators' },
+  { id:'ratp',   name:'RATP (Paris Metro)',                    cat:'Rail & Metro Operators' },
+  { id:'madmetro',name:'Metro de Madrid',                     cat:'Rail & Metro Operators' },
+  { id:'bvg',    name:'BVG (Berlin)',                         cat:'Rail & Metro Operators' },
+  { id:'mvg',    name:'MVG (Munich U-Bahn)',                   cat:'Rail & Metro Operators' },
+  { id:'ummilano',name:'MM SpA (Milan Metro)',                 cat:'Rail & Metro Operators' },
+  { id:'delmrt', name:'Delhi Metro Rail Corporation',          cat:'Rail & Metro Operators' },
+  { id:'mummrt', name:'Mumbai Metro One',                      cat:'Rail & Metro Operators' },
+  { id:'bangmrt',name:'Namma Metro (Bangalore)',               cat:'Rail & Metro Operators' },
+  { id:'chinacr',name:'China Railway Group Procurement',       cat:'Rail & Metro Operators' },
+  { id:'shmetro',name:'Shanghai Metro',                        cat:'Rail & Metro Operators' },
+  { id:'bjmetro',name:'Beijing Subway',                        cat:'Rail & Metro Operators' },
+  { id:'tokyomtr',name:'Tokyo Metro',                         cat:'Rail & Metro Operators' },
+  { id:'osakamtr',name:'Osaka Metro',                         cat:'Rail & Metro Operators' },
+  { id:'seoulmet',name:'Seoul Metro',                          cat:'Rail & Metro Operators' },
+  { id:'sydmetro',name:'Sydney Metro',                         cat:'Rail & Metro Operators' },
+  { id:'melbtram',name:'Yarra Trams / Metro Trains',           cat:'Rail & Metro Operators' },
+  // Port Authorities
+  { id:'portdov', name:'Port of Dover',                        cat:'Port Authorities' },
+  { id:'portilb', name:'Port of Tilbury',                      cat:'Port Authorities' },
+  { id:'portfel', name:'Port of Felixstowe',                   cat:'Port Authorities' },
+  { id:'portliv', name:'Port of Liverpool',                    cat:'Port Authorities' },
+  { id:'portimm', name:'Port of Immingham',                    cat:'Port Authorities' },
+  { id:'portsou', name:'ABP Southampton',                      cat:'Port Authorities' },
+  { id:'portbel', name:'Belfast Harbour',                      cat:'Port Authorities' },
+  { id:'portdub', name:'Dublin Port Company',                  cat:'Port Authorities' },
+  { id:'portrot', name:'Port of Rotterdam',                    cat:'Port Authorities' },
+  { id:'portant', name:'Port of Antwerp-Bruges',               cat:'Port Authorities' },
+  { id:'portham', name:'Hamburg Port Authority',               cat:'Port Authorities' },
+  { id:'portbre', name:'Bremenports',                          cat:'Port Authorities' },
+  { id:'portbar', name:'Port of Barcelona',                    cat:'Port Authorities' },
+  { id:'portval', name:'Port of Valencia',                     cat:'Port Authorities' },
+  { id:'portalg', name:'Port of Algeciras (APBA)',             cat:'Port Authorities' },
+  { id:'portgen', name:'Port of Genoa',                        cat:'Port Authorities' },
+  { id:'portpir', name:'Port of Piraeus',                      cat:'Port Authorities' },
+  { id:'portmpa', name:'MPA Singapore',                        cat:'Port Authorities' },
+  { id:'portkla', name:'Port Klang Authority',                 cat:'Port Authorities' },
+  { id:'portjnp', name:'JNPA Mumbai',                          cat:'Port Authorities' },
+  { id:'portpor', name:'Chennai Port Trust',                   cat:'Port Authorities' },
+  { id:'portbus', name:'Port of Brisbane',                     cat:'Port Authorities' },
+  { id:'portfre', name:'Fremantle Ports (WA)',                  cat:'Port Authorities' },
+  { id:'portbotany',name:'Port Botany (NSW)',                  cat:'Port Authorities' },
+  { id:'portlax', name:'Port of Los Angeles',                  cat:'Port Authorities' },
+  { id:'portlb',  name:'Port of Long Beach',                   cat:'Port Authorities' },
+  { id:'portnynj',name:'Port Authority of NY & NJ',            cat:'Port Authorities' },
+  { id:'portno',  name:'Port of New Orleans',                  cat:'Port Authorities' },
+  { id:'porthou', name:'Port of Houston',                      cat:'Port Authorities' },
+  { id:'portmia', name:'PortMiami',                            cat:'Port Authorities' },
+  { id:'portdbn', name:'Durban Port (Transnet)',               cat:'Port Authorities' },
+  { id:'portlag', name:'Nigerian Ports Authority',             cat:'Port Authorities' },
+  { id:'portmom', name:'Kenya Ports Authority (Mombasa)',      cat:'Port Authorities' },
+  { id:'portdar', name:'Tanzania Ports Authority (Dar es Salaam)',cat:'Port Authorities'},
+  { id:'portbusan',name:'Busan Port Authority',                cat:'Port Authorities' },
+  // Airport Authorities
+  { id:'heathrow',name:'Heathrow Airport Procurement',         cat:'Airport Authorities' },
+  { id:'gatwick', name:'Gatwick Airport Ltd',                  cat:'Airport Authorities' },
+  { id:'manchap',name:'Manchester Airports Group',             cat:'Airport Authorities' },
+  { id:'edinap', name:'Edinburgh Airport',                     cat:'Airport Authorities' },
+  { id:'aena',   name:'AENA (Spain)',                          cat:'Airport Authorities' },
+  { id:'adp',    name:'Groupe ADP (Paris)',                    cat:'Airport Authorities' },
+  { id:'fraport',name:'Fraport AG (Frankfurt)',                cat:'Airport Authorities' },
+  { id:'schiphol',name:'Amsterdam Airport Schiphol',           cat:'Airport Authorities' },
+  { id:'fiumicino',name:'ADR (Rome Fiumicino)',                cat:'Airport Authorities' },
+  { id:'zurap',  name:'Zurich Airport',                        cat:'Airport Authorities' },
+  { id:'vieap',  name:'Vienna International Airport',          cat:'Airport Authorities' },
+  { id:'yyap',   name:'GTAA (Toronto Pearson)',                cat:'Airport Authorities' },
+  { id:'sydap',  name:'Sydney Airport',                        cat:'Airport Authorities' },
+  { id:'melbap', name:'Melbourne Airport',                     cat:'Airport Authorities' },
+  { id:'bneap',  name:'Brisbane Airport',                      cat:'Airport Authorities' },
+  { id:'changi', name:'Changi Airport Group',                  cat:'Airport Authorities' },
+  { id:'hkaa',   name:'Hong Kong Airport Authority',           cat:'Airport Authorities' },
+  { id:'dial',   name:'DIAL (Delhi Airport)',                  cat:'Airport Authorities' },
+  { id:'mial',   name:'MIAL (Mumbai Airport)',                 cat:'Airport Authorities' },
+  { id:'naritap',name:'Narita International Airport',          cat:'Airport Authorities' },
+  { id:'incheon',name:'Incheon International Airport',         cat:'Airport Authorities' },
+  { id:'laxap',  name:'Los Angeles World Airports (LAWA)',     cat:'Airport Authorities' },
+  { id:'jfkap',  name:'JFK International Airport',            cat:'Airport Authorities' },
+  { id:'ordap',  name:"Chicago O'Hare",                        cat:'Airport Authorities' },
+  { id:'atlag',  name:'Hartsfield-Jackson Atlanta Airport',    cat:'Airport Authorities' },
+  { id:'dfwap',  name:'Dallas/Fort Worth Airport',             cat:'Airport Authorities' },
+  { id:'denap',  name:'Denver International Airport',          cat:'Airport Authorities' },
+  { id:'dubap',  name:'Dubai Airports (GDRFA)',                cat:'Airport Authorities' },
+  { id:'abuap',  name:'Abu Dhabi Airports',                    cat:'Airport Authorities' },
+  { id:'addisap',name:'AAICAA (Addis Ababa Airport)',          cat:'Airport Authorities' },
+  // Water & Environment Utilities
+  { id:'thamwat',name:'Thames Water',                          cat:'Water & Environment' },
+  { id:'anglwat',name:'Anglian Water',                         cat:'Water & Environment' },
+  { id:'sevtrent',name:'Severn Trent Water',                   cat:'Water & Environment' },
+  { id:'yorkwat',name:'Yorkshire Water',                       cat:'Water & Environment' },
+  { id:'uuwat',  name:'United Utilities',                      cat:'Water & Environment' },
+  { id:'swwater',name:'South West Water',                      cat:'Water & Environment' },
+  { id:'welshwat',name:'Welsh Water (Dŵr Cymru)',              cat:'Water & Environment' },
+  { id:'niwat',  name:'NI Water',                              cat:'Water & Environment' },
+  { id:'irishwat',name:'Uisce Éireann (Ireland)',              cat:'Water & Environment' },
+  { id:'suezcf', name:'Suez Water Technology',                 cat:'Water & Environment' },
+  { id:'veolia', name:'Veolia Water',                          cat:'Water & Environment' },
+  { id:'mwdsc',  name:'Metropolitan Water District (SoCal)',   cat:'Water & Environment' },
+  { id:'sfpuc',  name:'SFPUC (San Francisco)',                  cat:'Water & Environment' },
+  { id:'nycdep', name:'NYC DEP',                               cat:'Water & Environment' },
+  { id:'ebmud',  name:'EBMUD (Oakland)',                       cat:'Water & Environment' },
+  { id:'cwc',    name:'Central Water Commission (India)',       cat:'Water & Environment' },
+  { id:'saciwrm',name:'SACIWRM (South Africa)',                cat:'Water & Environment' },
+  { id:'nwsdb',  name:'NWSDB (Sri Lanka)',                     cat:'Water & Environment' },
+  { id:'pdam',   name:'PDAM (Indonesia)',                      cat:'Water & Environment' },
+  { id:'washenv',name:'US EPA Water Infrastructure Grants',    cat:'Water & Environment' },
+  // Energy Utilities & Transmission
+  { id:'natgrid',name:'National Grid (UK)',                    cat:'Energy Utilities' },
+  { id:'ukpn',   name:'UK Power Networks',                     cat:'Energy Utilities' },
+  { id:'ngen',   name:'National Grid ESO',                     cat:'Energy Utilities' },
+  { id:'spenl',  name:'SP Energy Networks',                    cat:'Energy Utilities' },
+  { id:'sseenl', name:'SSE Networks',                          cat:'Energy Utilities' },
+  { id:'wpd',    name:'Western Power Distribution',            cat:'Energy Utilities' },
+  { id:'rte',    name:'RTE (France Transmission)',             cat:'Energy Utilities' },
+  { id:'tennet', name:'TenneT (Netherlands/Germany)',          cat:'Energy Utilities' },
+  { id:'elia',   name:'Elia (Belgium)',                        cat:'Energy Utilities' },
+  { id:'ree',    name:'Red Eléctrica (Spain)',                 cat:'Energy Utilities' },
+  { id:'terna',  name:'Terna (Italy)',                         cat:'Energy Utilities' },
+  { id:'entsos', name:'ENTSO-E',                               cat:'Energy Utilities' },
+  { id:'enel',   name:'Enel Green Power',                      cat:'Energy Utilities' },
+  { id:'iberd',  name:'Iberdrola',                             cat:'Energy Utilities' },
+  { id:'enbw',   name:'EnBW',                                  cat:'Energy Utilities' },
+  { id:'eonproc',name:'E.ON Procurement',                      cat:'Energy Utilities' },
+  { id:'rwe',    name:'RWE',                                   cat:'Energy Utilities' },
+  { id:'vattenfall',name:'Vattenfall',                         cat:'Energy Utilities' },
+  { id:'eskom',  name:'Eskom (South Africa)',                  cat:'Energy Utilities' },
+  { id:'ntpc',   name:'NTPC (India)',                          cat:'Energy Utilities' },
+  { id:'pgcil',  name:'PGCIL (India Transmission)',            cat:'Energy Utilities' },
+  { id:'egat',   name:'EGAT (Thailand)',                       cat:'Energy Utilities' },
+  { id:'kepco',  name:'KEPCO (South Korea)',                   cat:'Energy Utilities' },
+  { id:'tepco',  name:'TEPCO (Japan)',                         cat:'Energy Utilities' },
+  { id:'neom_e', name:'NEOM / ACWA Power Projects',           cat:'Energy Utilities' },
+  { id:'ladwp',  name:'LADWP (Los Angeles)',                   cat:'Energy Utilities' },
+  { id:'pge',    name:'PG&E (California)',                     cat:'Energy Utilities' },
+  { id:'duke',   name:'Duke Energy',                           cat:'Energy Utilities' },
+  { id:'dominion',name:'Dominion Energy',                      cat:'Energy Utilities' },
+  { id:'nextera',name:'NextEra Energy',                        cat:'Energy Utilities' },
+  // Sustainability, District Energy & MEP
+  { id:'breeam',  name:'BREEAM / BRE Group',                      cat:'Sustainability & MEP' },
+  { id:'leed',    name:'USGBC / LEED Projects',                    cat:'Sustainability & MEP' },
+  { id:'c40',     name:'C40 Cities Climate Leadership',            cat:'Sustainability & MEP' },
+  { id:'iea',     name:'IEA Clean Energy Procurement',             cat:'Sustainability & MEP' },
+  { id:'irena',   name:'IRENA Projects Database',                  cat:'Sustainability & MEP' },
+  { id:'dena',    name:'Deutsche Energie-Agentur (dena)',          cat:'Sustainability & MEP' },
+  { id:'bre',     name:'BRE National Programme',                   cat:'Sustainability & MEP' },
+  { id:'ukdhe',   name:'UK District Heat Network Task Force',      cat:'Sustainability & MEP' },
+  { id:'dhcuk',   name:'CIBSE / District Heating Networks (UK)',   cat:'Sustainability & MEP' },
+  { id:'enova',   name:'Enova (Norway Energy Agency)',             cat:'Sustainability & MEP' },
+  { id:'ademe',   name:'ADEME (France Energy & Environment)',      cat:'Sustainability & MEP' },
+  { id:'gbca',    name:'Green Building Council Australia',         cat:'Sustainability & MEP' },
+  { id:'sgbc',    name:'Singapore Green Building Council',         cat:'Sustainability & MEP' },
+  { id:'worldbank_e',name:'World Bank Energy Sector Procurement',  cat:'Sustainability & MEP' },
+  { id:'adb_e',   name:'ADB Energy & Climate Projects',           cat:'Sustainability & MEP' },
+  { id:'undp_e',  name:'UNDP Climate & Energy Tenders',           cat:'Sustainability & MEP' },
+  { id:'gef',     name:'Global Environment Facility Projects',     cat:'Sustainability & MEP' },
+  { id:'gggi',    name:'Global Green Growth Institute',            cat:'Sustainability & MEP' },
+  { id:'nzgib',   name:'New Zealand Green Investment Finance',     cat:'Sustainability & MEP' },
+  { id:'masdar',  name:'Masdar (Abu Dhabi Future Energy)',         cat:'Sustainability & MEP' },
+  // Healthcare Infrastructure
+  { id:'nhsprop',name:'NHS Property Services',                 cat:'Healthcare Infrastructure' },
+  { id:'nhsest', name:'NHS Estates & Capital',                 cat:'Healthcare Infrastructure' },
+  { id:'nhsscot',name:'NHS National Services Scotland',        cat:'Healthcare Infrastructure' },
+  { id:'hse',    name:'Health Service Executive (Ireland)',    cat:'Healthcare Infrastructure' },
+  { id:'doha',   name:'Health Infrastructure NSW',            cat:'Healthcare Infrastructure' },
+  { id:'hnz',    name:'Health New Zealand (Te Whatu Ora)',     cat:'Healthcare Infrastructure' },
+  { id:'phsa',   name:'PHSA (BC Canada)',                      cat:'Healthcare Infrastructure' },
+  { id:'ohip',   name:'Ontario Health Infrastructure',        cat:'Healthcare Infrastructure' },
+  { id:'hhsfed', name:'US HHS Procurement',                   cat:'Healthcare Infrastructure' },
+  { id:'hud',    name:'HUD / CDC Facilities',                 cat:'Healthcare Infrastructure' },
+  { id:'santefr',name:'Santé Publique France',                cat:'Healthcare Infrastructure' },
+  { id:'bmg',    name:'Bundesgesundheitsministerium',         cat:'Healthcare Infrastructure' },
+  { id:'sanidad',name:'Ministerio de Sanidad (Spain)',        cat:'Healthcare Infrastructure' },
+  { id:'mohindia',name:'Ministry of Health India (PMAY-H)',   cat:'Healthcare Infrastructure' },
+  // Education Infrastructure
+  { id:'esfa',   name:'ESFA (UK Education Funding Agency)',   cat:'Education Infrastructure' },
+  { id:'dfecap', name:'DfE Capital (UK)',                     cat:'Education Infrastructure' },
+  { id:'sfc',    name:'Scottish Funding Council',             cat:'Education Infrastructure' },
+  { id:'hefce',  name:'OfS / Research England Capital',       cat:'Education Infrastructure' },
+  { id:'edaust', name:'Dept of Education Australia',          cat:'Education Infrastructure' },
+  { id:'edon',   name:'Ontario Ministry of Education',        cat:'Education Infrastructure' },
+  { id:'edbc',   name:'BC Ministry of Education',            cat:'Education Infrastructure' },
+  { id:'usdoe',  name:'US Dept of Education (E-Rate)',        cat:'Education Infrastructure' },
+  { id:'heri',   name:'Higher Education Research Ireland',    cat:'Education Infrastructure' },
+  { id:'nzeduc', name:'Ministry of Education NZ',            cat:'Education Infrastructure' },
+  // Defense & Security Infrastructure
+  { id:'mod',    name:'MOD (UK Defence)',                     cat:'Defense Infrastructure' },
+  { id:'dio',    name:'Defence Infrastructure Organisation (UK)',cat:'Defense Infrastructure' },
+  { id:'nato',   name:'NATO Defence Investment Contracts',    cat:'Defense Infrastructure' },
+  { id:'nspa',   name:'NATO Support & Procurement Agency',   cat:'Defense Infrastructure' },
+  { id:'usdod',  name:'US DoD Procurement (DIBBS)',           cat:'Defense Infrastructure' },
+  { id:'ausa',   name:'US Army Corps of Engineers - Military',cat:'Defense Infrastructure' },
+  { id:'navy',   name:'NAVFAC (US Navy)',                     cat:'Defense Infrastructure' },
+  { id:'usaf',   name:'AFCEC (US Air Force)',                 cat:'Defense Infrastructure' },
+  { id:'dnd',    name:'DND Canada',                           cat:'Defense Infrastructure' },
+  { id:'aus_def',name:'Defence Housing Australia',            cat:'Defense Infrastructure' },
+  { id:'dfence', name:'Defence Estate Organisation (India)',  cat:'Defense Infrastructure' },
+  // Digital & Telecoms Infrastructure
+  { id:'bduk',   name:'BDUK (Building Digital UK)',          cat:'Digital & Telecoms' },
+  { id:'ofcom',  name:'Ofcom (UK)',                           cat:'Digital & Telecoms' },
+  { id:'ntia',   name:'NTIA (USA Broadband)',                 cat:'Digital & Telecoms' },
+  { id:'fcc',    name:'FCC (USA)',                            cat:'Digital & Telecoms' },
+  { id:'nbnco',  name:'NBN Co (Australia)',                   cat:'Digital & Telecoms' },
+  { id:'trai',   name:'TRAI (India Telecoms)',                cat:'Digital & Telecoms' },
+  { id:'dcms',   name:'DCMS (UK Digital)',                    cat:'Digital & Telecoms' },
+  { id:'agcom',  name:'AGCOM (Italy Telecoms)',               cat:'Digital & Telecoms' },
+  { id:'cnil',   name:'ARCEP (France Digital)',               cat:'Digital & Telecoms' },
+  { id:'dcd2',   name:'Data Centre Dynamics',                cat:'Digital & Telecoms' },
+  { id:'uptime', name:'Uptime Institute',                    cat:'Digital & Telecoms' },
+  { id:'techuk', name:'techUK Procurement',                  cat:'Digital & Telecoms' },
+  // Housing & Urban Development
+  { id:'homeseng',name:'Homes England',                       cat:'Housing & Urban Development' },
+  { id:'glahou', name:'GLA (Greater London Authority) Housing',cat:'Housing & Urban Development' },
+  { id:'hudusa', name:'HUD (US Housing & Urban Dev)',         cat:'Housing & Urban Development' },
+  { id:'cmhc',   name:'CMHC (Canada Housing)',               cat:'Housing & Urban Development' },
+  { id:'hdb',    name:'HDB Singapore',                        cat:'Housing & Urban Development' },
+  { id:'hkha',   name:'Hong Kong Housing Authority',         cat:'Housing & Urban Development' },
+  { id:'nhfic',  name:'NHFIC (Australia)',                    cat:'Housing & Urban Development' },
+  { id:'pmayind',name:'PMAY (India Affordable Housing)',      cat:'Housing & Urban Development' },
+  { id:'sahou',  name:'NHFC (South Africa Housing)',          cat:'Housing & Urban Development' },
+  { id:'kenyhou',name:'Kenya NHC (National Housing Corp)',    cat:'Housing & Urban Development' },
+  { id:'urbanind',name:'Smart Cities Mission (India)',        cat:'Housing & Urban Development' },
+  { id:'abud',   name:'Abu Dhabi Urban Planning',             cat:'Housing & Urban Development' },
+  { id:'neomu',  name:'NEOM Urban Development',              cat:'Housing & Urban Development' },
+  // City & Municipal Portals
+  { id:'londc',  name:'London Contracts Register',            cat:'City & Municipal Portals' },
+  { id:'nycc',   name:'NYC Agency Procurement',               cat:'City & Municipal Portals' },
+  { id:'lacp',   name:'City of Los Angeles Procurement',      cat:'City & Municipal Portals' },
+  { id:'chicp',  name:'City of Chicago Procurement',          cat:'City & Municipal Portals' },
+  { id:'houstoncp',name:'City of Houston Procurement',        cat:'City & Municipal Portals' },
+  { id:'sydcp',  name:'City of Sydney Tenders',               cat:'City & Municipal Portals' },
+  { id:'melbcp', name:'City of Melbourne Tenders',            cat:'City & Municipal Portals' },
+  { id:'briscp', name:'Brisbane City Council Tenders',        cat:'City & Municipal Portals' },
+  { id:'perthcp',name:'City of Perth Tenders',                cat:'City & Municipal Portals' },
+  { id:'pariscp',name:'Marchés Paris',                        cat:'City & Municipal Portals' },
+  { id:'berlcp', name:'Berlin Senate Procurement',            cat:'City & Municipal Portals' },
+  { id:'madcp',  name:'Ayuntamiento de Madrid',               cat:'City & Municipal Portals' },
+  { id:'romcp',  name:'Comune di Roma',                       cat:'City & Municipal Portals' },
+  { id:'torontocp',name:'City of Toronto Tenders',            cat:'City & Municipal Portals' },
+  { id:'dunlin', name:'Dublin City Council Tenders',          cat:'City & Municipal Portals' },
+  { id:'dubcp',  name:'Dubai Municipality Procurement',       cat:'City & Municipal Portals' },
+  { id:'singcp', name:'Singapore Town Council Procurement',   cat:'City & Municipal Portals' },
+  { id:'mumbcp', name:'MCGM (Mumbai)',                         cat:'City & Municipal Portals' },
+  { id:'delhicp',name:'DUSIB (Delhi)',                         cat:'City & Municipal Portals' },
+  { id:'joburgcp',name:'City of Johannesburg Tenders',        cat:'City & Municipal Portals' },
+  { id:'nairbid',name:'Nairobi City County Tenders',          cat:'City & Municipal Portals' },
+  { id:'lagoscp',name:'Lagos State Procurement',              cat:'City & Municipal Portals' },
+  { id:'chicagocp2',name:'Chicago RFP Central',               cat:'City & Municipal Portals' },
+  { id:'dallascp',name:'City of Dallas Procurement',          cat:'City & Municipal Portals' },
+  { id:'phxcp',  name:'City of Phoenix Procurement',          cat:'City & Municipal Portals' },
+  { id:'seacp',  name:'City of Seattle Procurement',          cat:'City & Municipal Portals' },
+  { id:'denvcp', name:'Denver City Procurement',              cat:'City & Municipal Portals' },
+  { id:'atlcp',  name:'City of Atlanta Procurement',          cat:'City & Municipal Portals' },
+  { id:'bostcp', name:'City of Boston Procurement',           cat:'City & Municipal Portals' },
+  { id:'sfcp',   name:'City of San Francisco Procurement',    cat:'City & Municipal Portals' },
+  // Project Finance & Deals Intelligence
+  { id:'ijg',    name:'IJGlobal *',                            cat:'Project Finance' },
+  { id:'inframation',name:'Inframation News *',               cat:'Project Finance' },
+  { id:'pfi',    name:'Project Finance International *',      cat:'Project Finance' },
+  { id:'preqin', name:'Preqin Infrastructure *',              cat:'Project Finance' },
+  { id:'iija',   name:'US IIJA Project Tracker',              cat:'Project Finance' },
+  { id:'gih',    name:'Global Infrastructure Hub',            cat:'Project Finance' },
+  { id:'infraaus',name:'Infrastructure Australia',             cat:'Project Finance' },
+  { id:'ppp',    name:'PPP Knowledge Lab (World Bank)',        cat:'Project Finance' },
+  { id:'defra',  name:'Infra4Dev (OECD)',                     cat:'Project Finance' },
+  { id:'gcflcf', name:'Green Climate Fund Projects',          cat:'Project Finance' },
+  { id:'blmbrg', name:'Bloomberg New Energy Finance *',       cat:'Project Finance' },
+  { id:'dealsm', name:'Mergermarket Infrastructure *',        cat:'Project Finance' },
+  { id:'refiint',name:'Refinitiv Infrastructure *',           cat:'Project Finance' },
+  { id:'piln',   name:'Public Infrastructure Loan Network',   cat:'Project Finance' },
+  // ESG & Green Finance
+  { id:'gcf',    name:'Green Climate Fund',                   cat:'ESG & Green Finance' },
+  { id:'gef',    name:'Global Environment Facility',          cat:'ESG & Green Finance' },
+  { id:'ukib',   name:'UK Infrastructure Bank',               cat:'ESG & Green Finance' },
+  { id:'irena',  name:'IRENA Projects',                       cat:'ESG & Green Finance' },
+  { id:'eugreend',name:'EU Green Deal Financing',             cat:'ESG & Green Finance' },
+  { id:'cif',    name:'Climate Investment Funds',             cat:'ESG & Green Finance' },
+  { id:'ctf',    name:'Clean Technology Fund',                cat:'ESG & Green Finance' },
+  { id:'nzepi',  name:'Net Zero Energy Pipeline',             cat:'ESG & Green Finance' },
+  { id:'sbti',   name:'Science Based Targets Infrastructure', cat:'ESG & Green Finance' },
+  { id:'cdp',    name:'CDP Infrastructure Disclosures',       cat:'ESG & Green Finance' },
+  // Industry Press - Construction & Engineering
+  { id:'gcr',    name:'Global Construction Review',           cat:'Industry Press' },
+  { id:'nce',    name:'New Civil Engineer',                   cat:'Industry Press' },
+  { id:'cn',     name:'Construction News *',                  cat:'Industry Press' },
+  { id:'enr',    name:'Engineering News-Record (ENR)',        cat:'Industry Press' },
+  { id:'infranews',name:'Infrastructure Investor *',          cat:'Industry Press' },
+  { id:'meed',   name:'MEED Projects *',                      cat:'Industry Press' },
+  { id:'building',name:'Building Magazine',                   cat:'Industry Press' },
+  { id:'cpe',    name:'Civil + Structural Engineer',          cat:'Industry Press' },
+  { id:'cw',     name:'Construction Week',                    cat:'Industry Press' },
+  { id:'ce',     name:'Constructioneer',                      cat:'Industry Press' },
+  { id:'bimplus',name:'BIM+ (UK)',                            cat:'Industry Press' },
+  { id:'azobuild',name:'AZoBuild',                            cat:'Industry Press' },
+  { id:'icis',   name:'ICIS Infrastructure News *',           cat:'Industry Press' },
+  { id:'gcrasia',name:'GCR Asia Pacific',                     cat:'Industry Press' },
+  { id:'middle_east_infra',name:'Middle East Contractor',     cat:'Industry Press' },
+  { id:'african_build',name:'African Construction & Earthmoving',cat:'Industry Press' },
+  { id:'belden', name:'Belden Construction Tech',             cat:'Industry Press' },
+  // Sector Publications - Transport
+  { id:'rg',     name:'Railway Gazette International',        cat:'Sector Publications - Transport' },
+  { id:'masstt', name:'Mass Transit Magazine',                cat:'Sector Publications - Transport' },
+  { id:'railtech',name:'Railtech.com',                        cat:'Sector Publications - Transport' },
+  { id:'metro',  name:'Metro Report International',           cat:'Sector Publications - Transport' },
+  { id:'irj',    name:'International Railway Journal',        cat:'Sector Publications - Transport' },
+  { id:'rne',    name:'RailwayNews (RNE)',                    cat:'Sector Publications - Transport' },
+  { id:'hwmag',  name:'Highways Magazine',                   cat:'Sector Publications - Transport' },
+  { id:'airportw',name:'Airport World',                       cat:'Sector Publications - Transport' },
+  { id:'airtech',name:'Airport Technology',                   cat:'Sector Publications - Transport' },
+  { id:'pti',    name:'Port Technology International',        cat:'Sector Publications - Transport' },
+  { id:'mex',    name:'Maritime Executive',                   cat:'Sector Publications - Transport' },
+  { id:'portstr',name:'Port Strategy',                        cat:'Sector Publications - Transport' },
+  { id:'ihs_mar',name:'IHS Markit Ports *',                   cat:'Sector Publications - Transport' },
+  // Sector Publications - Energy & Environment
+  { id:'power',  name:'Power Engineering International',      cat:'Sector Publications - Energy' },
+  { id:'recharge',name:'Recharge News (Renewables)',          cat:'Sector Publications - Energy' },
+  { id:'windpow',name:'Wind Power Monthly',                   cat:'Sector Publications - Energy' },
+  { id:'solar',  name:'Solar Power Portal',                   cat:'Sector Publications - Energy' },
+  { id:'pv_mag', name:'PV Magazine',                         cat:'Sector Publications - Energy' },
+  { id:'offshorew',name:'Offshore Wind Journal',              cat:'Sector Publications - Energy' },
+  { id:'enerpol',name:'Energy Policy (Elsevier)',             cat:'Sector Publications - Energy' },
+  { id:'water',  name:'Water & Wastewater International',     cat:'Sector Publications - Energy' },
+  { id:'globalwat',name:'Global Water Intelligence *',        cat:'Sector Publications - Energy' },
+  { id:'wwt',    name:'WWT (Water & Wastewater Treatment)',   cat:'Sector Publications - Energy' },
+  // Sector Publications - Digital & Construction Tech
+  { id:'dcd',    name:'Data Centre Dynamics',                 cat:'Sector Publications - Digital' },
+  { id:'tun',    name:'Tunnelling Journal',                   cat:'Sector Publications - Digital' },
+  { id:'ground', name:'Ground Engineering',                   cat:'Sector Publications - Digital' },
+  { id:'smart',  name:'Smart Cities World',                   cat:'Sector Publications - Digital' },
+  { id:'cities', name:'Cities Today',                         cat:'Sector Publications - Digital' },
+  { id:'buildsmart',name:'Built Environment Networking',      cat:'Sector Publications - Digital' },
+  { id:'bimworld',name:'BIM World',                           cat:'Sector Publications - Digital' },
+  { id:'constrt',name:'Construction Technology Review',       cat:'Sector Publications - Digital' },
+  // Newswires & Press Releases
+  { id:'reuters',name:'Reuters Infrastructure',               cat:'Newswires' },
+  { id:'bloom',  name:'Bloomberg Infrastructure',             cat:'Newswires' },
+  { id:'prn',    name:'PR Newswire (Infrastructure)',         cat:'Newswires' },
+  { id:'bw',     name:'Business Wire',                        cat:'Newswires' },
+  { id:'ap',     name:'AP News (Infrastructure)',             cat:'Newswires' },
+  { id:'afp',    name:'AFP Infrastructure',                   cat:'Newswires' },
+  { id:'xinhua', name:'Xinhua (China Projects)',              cat:'Newswires' },
+  { id:'kyodo',  name:'Kyodo News (Japan)',                   cat:'Newswires' },
+  { id:'pib',    name:'PIB (India Press Info Bureau)',        cat:'Newswires' },
+  { id:'zawya',  name:'Zawya Projects (MENA)',                cat:'Newswires' },
+  { id:'menafy', name:'MENA FN',                              cat:'Newswires' },
+  { id:'efe',    name:'EFE (Spain/LatAm)',                    cat:'Newswires' },
+  // Industry & Professional Bodies
+  { id:'ice',    name:'ICE (Civil Engineers)',                cat:'Industry Bodies' },
+  { id:'fidic',  name:'FIDIC Project Notices',               cat:'Industry Bodies' },
+  { id:'agc',    name:'AGC (US Contractors)',                 cat:'Industry Bodies' },
+  { id:'ciob',   name:'CIOB (Chartered Institute of Building)',cat:'Industry Bodies' },
+  { id:'riba',   name:'RIBA (Architects)',                    cat:'Industry Bodies' },
+  { id:'asce',   name:'ASCE (US Civil Engineers)',            cat:'Industry Bodies' },
+  { id:'rics',   name:'RICS (Royal Institution of Chartered Surveyors)',cat:'Industry Bodies' },
+  { id:'cips',   name:'CIPS (Procurement Professionals)',     cat:'Industry Bodies' },
+  { id:'apmg',   name:'APM Group (Project Management)',       cat:'Industry Bodies' },
+  { id:'bciuk',  name:'BCI (British Constructional Ironwork)',cat:'Industry Bodies' },
+  { id:'eca',    name:'ECA (Electrical Contractors)',         cat:'Industry Bodies' },
+  { id:'naeci',  name:'NAECI (Engineering Construction)',     cat:'Industry Bodies' },
+  { id:'consoc', name:'Construct for Society',               cat:'Industry Bodies' },
+  { id:'wef',    name:'WEF Infrastructure & Urban Dev',      cat:'Industry Bodies' },
+  { id:'wbcsd',  name:'WBCSD Cities & Mobility',            cat:'Industry Bodies' },
+  { id:'gresb',  name:'GRESB (Infrastructure Benchmark)',    cat:'Industry Bodies' },
+  { id:'giia',   name:'Global Infrastructure Investor Association',cat:'Industry Bodies' },
+  { id:'g20infra',name:'G20 Infrastructure Working Group',   cat:'Industry Bodies' },
+  { id:'oecd_inv',name:'OECD Investment Policy',             cat:'Industry Bodies' },
+  { id:'wsbcf',  name:'World Sustainable Building',          cat:'Industry Bodies' },
+  // Lead & Pipeline Databases
+  { id:'glenigan',name:'Glenigan *',                         cat:'Lead Databases' },
+  { id:'barbour',name:'Barbour ABI *',                       cat:'Lead Databases' },
+  { id:'dodge',  name:'Dodge Construction Network *',        cat:'Lead Databases' },
+  { id:'hubexo', name:'Hubexo (Cordell) *',                  cat:'Lead Databases' },
+  { id:'gtd',    name:'Global Tenders Database',             cat:'Lead Databases' },
+  { id:'infra2', name:'InfraAlerts',                         cat:'Lead Databases' },
+  { id:'bci',    name:'BCI Central (Asia Pacific) *',        cat:'Lead Databases' },
+  { id:'bidnet', name:'BidNet Direct',                       cat:'Lead Databases' },
+  { id:'demandst',name:'DemandStar',                         cat:'Lead Databases' },
+  { id:'bidsinf',name:'Bids & Tenders (Canada)',             cat:'Lead Databases' },
+  { id:'procore',name:'Procore Construction Network',        cat:'Lead Databases' },
+  { id:'tenderly',name:'Tenderlink (Australia)',             cat:'Lead Databases' },
+  { id:'mytend', name:'MyTenders (UK)',                      cat:'Lead Databases' },
+  { id:'tens',   name:'Tenders.net',                         cat:'Lead Databases' },
+  { id:'globalt',name:'Global Tenders Portal',               cat:'Lead Databases' },
+  // Think Tanks & Research
+  { id:'arupthk',name:'Arup Insights',                       cat:'Think Tanks & Research' },
+  { id:'mckinf', name:'McKinsey Global Infrastructure Insights',cat:'Think Tanks & Research' },
+  { id:'oxinf',  name:'Oxford Economics Infrastructure',     cat:'Think Tanks & Research' },
+  { id:'cambec', name:'Cambridge Econometrics Infrastructure',cat:'Think Tanks & Research' },
+  { id:'gihub',  name:'Global Infrastructure Hub Research',  cat:'Think Tanks & Research' },
+  { id:'ipieca', name:'IPIECA (Oil & Gas Infrastructure)',   cat:'Think Tanks & Research' },
+  { id:'chatham',name:'Chatham House Infrastructure',        cat:'Think Tanks & Research' },
+  { id:'odi',    name:'ODI Infrastructure Research',        cat:'Think Tanks & Research' },
+  { id:'brookings',name:'Brookings Infrastructure',         cat:'Think Tanks & Research' },
+  { id:'rand',   name:'RAND Infrastructure Research',       cat:'Think Tanks & Research' },
+];
+
+const SECTOR_HINTS = {
+  'Energy, Water & Sustainability': 'Focus specifically on: MEP and MEPF engineering appointments for major civic, cultural, healthcare, education, transport and mixed-use projects; sustainable environmental design and analysis commissions; architectural lighting design for landmark buildings and public spaces; vertical transportation (lifts, escalators) and horizontal transportation engineering; sustainable environmental masterplanning at campus, district, city and regional scale; infrastructure engineering appointments; sustainability vision plans and net-zero carbon masterplans; whole life carbon assessments (embodied + operational); carbon impact strategy appointments; sustainability framework commissions covering energy and carbon, water, resources, wellbeing, community impact, land and ecology, and social equity; retrofit and adaptive reuse of existing buildings with sustainability briefs; campus energy masterplans and campus utility vision plans; circular economy strategies; biophilic design frameworks; health and wellbeing masterplans; and climate resilience studies. Only include design consultancy, engineering and masterplanning commissions - exclude standalone utility construction, renewable energy farm delivery, water treatment plant construction, smart metering procurement, and utility network delivery contracts. Clients include major cultural institutions, universities, hospitals, airports, government estates, local authorities, mixed-use developers, and city authorities.',
+  'High Speed Rail & Metro': 'Focus on new line authorisations, rolling stock procurement, signalling contracts, station design competitions, depot construction, electrification schemes, and track renewal frameworks.',
+  'Transit-Oriented Development': 'Focus on station precinct masterplans, air rights developments, interchange design, transit village developments, and mixed-use TOD planning commissions.',
+  'Urban Regeneration & Masterplanning': 'Focus on waterfront regeneration, brownfield masterplans, new urban quarters, public realm strategies, and city-centre revitalisation programmes.',
+  'Data Centres & Tech Infrastructure': 'Focus on hyperscale data centre campuses, colocation facilities, digital infrastructure parks, and associated power and cooling infrastructure.',
+  'Ports & Maritime Infrastructure': 'Focus on port expansion, container terminal development, cruise infrastructure, marine structures, and coastal protection schemes.',
+  'Mega Projects & National Programmes': 'Focus on new cities, economic zones, national infrastructure pipelines, government programme management appointments, and major event infrastructure.',
+};
+
+async function fetchOpportunities(sectorName, region, enabledSources) {
+  // Cap source list to 60 names to keep prompt within Gemini token limits
+  const sourceSample = enabledSources.length
+    ? enabledSources.slice(0, 60).map(s => s.name).join(', ')
+    : 'all available procurement databases';
+
+  const sectorHint = SECTOR_HINTS[sectorName] ? `\n\nSector guidance: ${SECTOR_HINTS[sectorName]}` : '';
+
+  const prompt = `You are a strategic business development intelligence engine for GIA (Global Infrastructure Advisors). Find as many real, current infrastructure procurement opportunities as possible for sector: "${sectorName}" in region: "${region}". Return at least 8 and up to 20 results.${sectorHint}
+
+Search specifically across these procurement databases and sources: ${sourceSample}.
+
+Return ONLY a valid JSON array. Start with [ and end with ]. No markdown, no code fences, no explanation before or after.
+
+Each object must have ALL these fields:
+- title: string (specific project or tender name)
+- client: string (procuring authority)
+- region: string (specific country/city)
+- lat: number (latitude of project location, e.g. 51.5)
+- lng: number (longitude of project location, e.g. -0.1)
+- stage: one of ["Pipeline","Procurement","Live Tender","Awarded"]
+- urgency: one of ["High","Medium","Low"]
+- relevance: integer 50-97
+- value: string (e.g. "£2.4bn")
+- deadline: string (e.g. "Q3 2025")
+- type: string (e.g. "Design & Build")
+- source: string (name of procurement database where found)
+- overview: string (2-3 sentences)
+- context: string (2-3 sentences)
+- gia: { sectorFit: integer 0-100, scaleFit: integer 0-100, geoFit: integer 0-100, winProb: integer 0-100, verdict: string }`;
+
+  const res = await fetch(GEMINI_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      contents:[{parts:[{text:prompt}]}],
+      tools:[{google_search:{}}],
+      generationConfig:{ temperature:0.7, maxOutputTokens:8192 }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err?.error?.message || `Gemini API error ${res.status}`);
+  }
+  const data = await res.json();
+  const text = (data?.candidates?.[0]?.content?.parts || []).map(p=>p.text||'').join('');
+  const stripped = text.replace(/```json|```/gi,'').trim();
+  const start = stripped.indexOf('[');
+  if (start===-1) throw new Error('Could not parse JSON from response');
+  // Strip control characters
+  const raw = stripped.slice(start).replace(/[\x00-\x1F\x7F]/g,' ');
+  // Try parsing as-is first
+  try { return JSON.parse(raw); } catch(e) {}
+  // Truncate to last complete object (find last '}' before ']')
+  function truncateToComplete(s) {
+    const lastClose = s.lastIndexOf('}');
+    if (lastClose === -1) return s;
+    return s.slice(0, lastClose+1) + ']';
+  }
+  try { return JSON.parse(truncateToComplete(raw)); } catch(e) {}
+  // Last resort: extract individual objects and parse each one
+  const items = [];
+  const objRe = /\{[\s\S]*?\}(?=\s*[,\]])/g;
+  let m;
+  while ((m = objRe.exec(raw)) !== null) {
+    try { items.push(JSON.parse(m[0])); } catch(e) {}
+  }
+  if (items.length > 0) return items;
+  throw new Error('Could not parse JSON from response');
+}
+
+function downloadCSV(results) {
+  const headers = ['Title','Client','Region','Sector','Stage','Urgency','Relevance','Value','Deadline','Type','Source','Overview','Context','Sector Fit','Scale Fit','Geo Fit','Win Probability','Verdict'];
+  const rows = [headers.join(',')];
+  SECTORS.forEach(sector => {
+    (results[sector.id]||[]).forEach(opp => {
+      rows.push([
+        opp.title, opp.client, opp.region, sector.name, opp.stage, opp.urgency,
+        opp.relevance, opp.value, opp.deadline, opp.type, opp.source,
+        opp.overview, opp.context,
+        opp.gia?.sectorFit, opp.gia?.scaleFit, opp.gia?.geoFit, opp.gia?.winProb, opp.gia?.verdict
+      ].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','));
+    });
+  });
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `gia-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function MapView({all}) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+
+  useEffect(() => {
+    if (!containerRef.current || typeof L === 'undefined') return;
+    const map = L.map(containerRef.current, {zoomControl:true}).setView([20,10],2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{
+      attribution:'©OpenStreetMap ©CartoDB', subdomains:'abcd', maxZoom:19
+    }).addTo(map);
+    mapRef.current = map;
+    setTimeout(() => map.invalidateSize(), 50);
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+    all.forEach(opp => {
+      if (typeof opp.lat !== 'number' || typeof opp.lng !== 'number') return;
+      const color = opp.urgency==='High'?'#FF5252':opp.urgency==='Medium'?'#FFAB40':'#7C4DFF';
+      const m = L.circleMarker([opp.lat, opp.lng], {
+        radius:8, fillColor:color, color:'rgba(0,0,0,0.4)', weight:1, opacity:0.9, fillOpacity:0.75
+      }).addTo(mapRef.current).bindPopup(
+        `<div style="font-family:monospace;font-size:11px;min-width:200px;line-height:1.6">
+          <div style="font-weight:700;margin-bottom:4px">${opp.title}</div>
+          <div>${opp.client}</div>
+          <div style="color:#888">${opp.region}${opp.value?' · '+opp.value:''}</div>
+          <div style="margin-top:6px"><span style="color:${color};font-weight:600">${opp.urgency}</span> · ${opp.stage}</div>
+        </div>`
+      );
+      markersRef.current.push(m);
+    });
+  }, [all]);
+
+  const mapped = all.filter(o => typeof o.lat === 'number').length;
+  return React.createElement('div', {className:'map-wrap'},
+    React.createElement('div', {ref:containerRef, style:{height:'100%',width:'100%'}}),
+    React.createElement('div', {className:'map-legend'},
+      React.createElement('div', {className:'map-legend-row'}, React.createElement('div', {className:'map-dot', style:{background:'#FF5252'}}), 'High Urgency'),
+      React.createElement('div', {className:'map-legend-row'}, React.createElement('div', {className:'map-dot', style:{background:'#FFAB40'}}), 'Medium Urgency'),
+      React.createElement('div', {className:'map-legend-row'}, React.createElement('div', {className:'map-dot', style:{background:'#7C4DFF'}}), 'Low Urgency'),
+      React.createElement('div', {className:'map-count'}, mapped + ' project' + (mapped!==1?'s':'') + ' mapped')
+    )
+  );
+}
+
+function SourcesPanel({sources, onToggle, onToggleCat, onSelectAll, onSelectNone}) {
+  const groups = {};
+  sources.forEach(s => { if (!groups[s.cat]) groups[s.cat]=[]; groups[s.cat].push(s); });
+  const enabled = sources.filter(s=>s.enabled).length;
+  return React.createElement('div', {className:'sources-wrap'},
+    React.createElement('div', {className:'sources-header'},
+      React.createElement('div', {style:{flex:1}},
+        React.createElement('div', {className:'sources-title'}, 'Procurement Sources'),
+        React.createElement('div', {className:'sources-subtitle'}, `${enabled} of ${sources.length} sources active - included in every scan`),
+        React.createElement('div', {className:'sources-subtitle'}, '* subscription required - Gemini uses publicly indexed excerpts only')
+      ),
+      React.createElement('button', {className:'src-btn', onClick:onSelectAll}, 'Select All'),
+      React.createElement('button', {className:'src-btn', onClick:onSelectNone, style:{marginLeft:6}}, 'Clear All')
+    ),
+    React.createElement('div', {className:'sources-grid'},
+      ...Object.entries(groups).map(([cat, srcs]) => {
+        const allOn = srcs.every(s=>s.enabled);
+        return React.createElement('div', {key:cat, className:'source-group'},
+          React.createElement('div', {className:'source-cat-header'},
+            React.createElement('div', {className:'source-cat-label'}, cat),
+            React.createElement('button', {
+              className:'source-cat-toggle',
+              onClick:()=>onToggleCat(cat, !allOn)
+            }, allOn ? 'Deselect' : 'Select All')
+          ),
+          ...srcs.map(s =>
+            React.createElement('label', {key:s.id, className:`source-item${s.enabled?' active':''}`},
+              React.createElement('input', {type:'checkbox', checked:s.enabled, onChange:()=>onToggle(s.id)}),
+              s.name
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+function ScoreRing({score}) {
+  const r=17, c=2*Math.PI*r, offset=c-(score/100)*c;
+  const color = score>=75?'#00E676':score>=55?'#FFAB40':'#FF5252';
+  return React.createElement('div',{className:'score-ring'},
+    React.createElement('svg',{viewBox:'0 0 44 44'},
+      React.createElement('circle',{cx:22,cy:22,r,fill:'none',strokeWidth:3,stroke:'#2e3852'}),
+      React.createElement('circle',{cx:22,cy:22,r,fill:'none',strokeWidth:3,stroke:color,strokeLinecap:'round',style:{strokeDasharray:c,strokeDashoffset:offset}})
+    ),
+    React.createElement('div',{className:'score-label',style:{color}},score)
+  );
+}
+
+function GiaPanel({gia}) {
+  const rows=[{l:'Sector Fit',v:gia.sectorFit},{l:'Scale Fit',v:gia.scaleFit},{l:'Geography',v:gia.geoFit},{l:'Win Probability',v:gia.winProb}];
+  return React.createElement('div',{className:'gia-panel'},
+    React.createElement('div',{className:'gia-title'},React.createElement(Icon,{name:'Target',size:12}),' GIA Fit Assessment'),
+    React.createElement('div',{className:'gia-grid'},
+      ...rows.map(r=>{
+        const t=r.v>=70?'high':r.v>=45?'medium':'low';
+        return React.createElement('div',{key:r.l},
+          React.createElement('div',{className:'gia-item-label'},r.l),
+          React.createElement('div',{className:'gia-bar-wrap'},React.createElement('div',{className:`gia-bar gb-${t}`,style:{width:r.v+'%'}})),
+          React.createElement('div',{className:'gia-item-val'},r.v+'%')
+        );
+      })
+    ),
+    React.createElement('div',{className:'gia-verdict'},React.createElement('strong',null,'Assessment: '),gia.verdict)
+  );
+}
+
+function Card({opp,idx}) {
+  const [open,setOpen]=useState(false);
+  const sc={'Pipeline':'b-pipeline','Procurement':'b-procurement','Live Tender':'b-live','Awarded':'b-awarded'}[opp.stage]||'b-pipeline';
+  const uc={High:'b-high',Medium:'b-medium',Low:'b-low'}[opp.urgency]||'b-low';
+  return React.createElement('div',{className:`result-card${open?' expanded':''}`,style:{animationDelay:`${idx*0.07}s`}},
+    React.createElement('div',{className:'card-header',onClick:()=>setOpen(!open)},
+      React.createElement('div',{className:'card-score-col'},React.createElement(ScoreRing,{score:opp.relevance}),React.createElement('div',{className:'score-text'},'RELEVANCE')),
+      React.createElement('div',{className:'card-main'},
+        React.createElement('div',{className:'card-badges'},
+          React.createElement('span',{className:`badge ${sc}`},opp.stage),
+          React.createElement('span',{className:`badge ${uc}`},opp.urgency),
+          React.createElement('span',{className:'badge b-region'},opp.region),
+          opp.value&&React.createElement('span',{className:'badge b-region'},opp.value)
+        ),
+        React.createElement('div',{className:'card-title'},opp.title),
+        React.createElement('div',{className:'card-client'},opp.client),
+        React.createElement('div',{className:'card-meta'},
+          opp.deadline&&React.createElement('div',{className:'meta-item'},React.createElement(Ph,{name:'calendar',size:12}),React.createElement('span',null,opp.deadline)),
+          opp.type&&React.createElement('div',{className:'meta-item'},React.createElement(Ph,{name:'file-text',size:12}),React.createElement('span',null,opp.type)),
+          opp.source&&React.createElement('div',{className:'meta-item'},React.createElement(Ph,{name:'link',size:12}),React.createElement('span',null,opp.source))
+        )
+      ),
+      React.createElement('div',{className:'card-expand-btn'},React.createElement(Icon,{name:'ChevronDown',size:14}))
+    ),
+    open&&React.createElement('div',{className:'card-body'},
+      React.createElement('div',null,React.createElement('div',{className:'detail-title'},'Opportunity Overview'),React.createElement('div',{className:'detail-text'},opp.overview)),
+      React.createElement('div',null,React.createElement('div',{className:'detail-title'},'Strategic Context'),React.createElement('div',{className:'detail-text'},opp.context)),
+      React.createElement(GiaPanel,{gia:opp.gia})
+    )
+  );
+}
+
+const SECTOR_DETAILS = [
+  {
+    id: 'hsr',
+    name: 'High Speed Rail & Metro',
+    tagline: 'Fixed-Guideway Rapid Transit',
+    definition: 'Covers the planning, design, construction and systems integration of high-speed intercity rail corridors (typically 200 km/h+), conventional heavy rail upgrades, urban metro lines, light rail transit (LRT), tram networks, and associated stations, depots and electrification infrastructure.',
+    scanning: 'Scans for new line authorisations, civil works packages (tunnelling, viaducts, earthworks), rolling stock procurement, signalling and ETCS/CBTC contracts, station design competitions, depot construction, electrification schemes, and track renewal frameworks. Looks for both greenfield new builds and capacity-expansion programmes on existing networks.',
+    keywords: ['Metro','LRT','HSR','Signalling','ETCS','CBTC','Electrification','Tunnelling','Viaduct','Station Design','Rolling Stock','Track Renewal','Depot','OLE']
+  },
+  {
+    id: 'tod',
+    name: 'Transit-Oriented Development',
+    tagline: 'Mixed-Use Urban Intensification',
+    definition: 'Transit-Oriented Development (TOD) is the planning and delivery of high-density, mixed-use districts centred on a transit node - typically within 800m of a rail station, bus rapid transit stop or metro entrance. Encompasses residential, commercial, retail and public realm elements alongside transport interchange improvements.',
+    scanning: 'Scans for air-rights development briefs above or adjacent to stations, masterplan competitions for transit corridors, framework agreements for mixed-use development, regeneration zone designations linked to new transport investment, joint development agreements between transit authorities and developers, public realm and place-making contracts, and TOD planning policy consultations that signal future procurement.',
+    keywords: ['Air Rights','Masterplan','Mixed-Use','Station Precinct','Regeneration Zone','Transit Hub','Land Value Capture','Joint Development','Public Realm','Interchange','Wayfinding']
+  },
+  {
+    id: 'urb',
+    name: 'Urban Regeneration & Masterplanning',
+    tagline: 'Large-Scale Place Transformation',
+    definition: 'Encompasses the comprehensive redevelopment of urban areas - including brownfield land remediation, waterfront regeneration, new town and garden city delivery, district-scale infrastructure (utilities, roads, digital), public buildings, and the physical renewal of deprived or post-industrial neighbourhoods.',
+    scanning: 'Scans for enterprise zone announcements, development corporation procurements, strategic masterplanning briefs, infrastructure delivery partner frameworks, remediation and enabling works tenders, design competitions for landmark civic buildings, housing zone delivery partnerships, public-private partnership structures for large regeneration schemes, and national urban renewal programmes.',
+    keywords: ['Brownfield','Remediation','Masterplan','Development Corporation','Enterprise Zone','Garden City','Waterfront','Enabling Works','Place-Making','Urban Renewal','Civic','Housing Zone']
+  },
+  {
+    id: 'dc',
+    name: 'Data Centres & Tech Infrastructure',
+    tagline: 'Digital & Compute Infrastructure',
+    definition: 'Covers the design, construction and fit-out of hyperscale, colocation and edge data centres; subsea and terrestrial fibre optic cable systems; 5G and open RAN network rollout; satellite ground stations; smart city infrastructure (IoT, sensors, digital twin platforms); and the power and cooling systems that support them.',
+    scanning: 'Scans for planning applications for new data centre campuses, power connection applications to electrical networks, hyperscaler land acquisitions, government broadband programmes (rural fibre, gigabit vouchers), 5G spectrum auctions and small-cell rollout frameworks, subsea cable landing rights, smart city platform procurements, edge compute deployments at transport hubs, and national digital infrastructure strategies signalling investment.',
+    keywords: ['Hyperscale','Colocation','Edge','Fibre','5G','Open RAN','Subsea Cable','Smart City','IoT','Power & Cooling','UPS','Data Hall','Campus','Digital Twin']
+  },
+  {
+    id: 'port',
+    name: 'Ports & Maritime Infrastructure',
+    tagline: 'Seaport, Inland & Offshore Marine',
+    definition: 'Covers the development, expansion and modernisation of commercial seaports, container terminals, bulk handling facilities, ferry terminals, cruise terminals, inland waterways, dry docks and ship repair facilities, offshore wind port logistics bases, and associated dredging, breakwater and marine civil works.',
+    scanning: 'Scans for port masterplan reviews, terminal expansion planning consents, port authority capital works programmes, dredging and reclamation tenders, quayside crane and handling equipment procurement, port community system procurements, offshore wind Operations & Maintenance (O&M) base development, marine structure refurbishment (dolphins, jetties, lock gates), and national port strategy reviews that signal future investment.',
+    keywords: ['Container Terminal','Bulk Handling','Dredging','Quayside','Lock Gate','Ferry Terminal','Cruise','Offshore Wind Base','Breakwater','Reclamation','Port Authority','Marine Civil']
+  },
+  {
+    id: 'mega',
+    name: 'Mega Projects & National Programmes',
+    tagline: 'Strategic National Capital Investment',
+    definition: 'Covers transformational, multi-billion national infrastructure programmes that cut across multiple sectors: new cities and economic zones (e.g. NEOM), national housing delivery programmes, cross-sector energy transition plans, government-backed industrial strategies, post-disaster reconstruction programmes, and multi-modal national infrastructure pipelines published by governments.',
+    scanning: 'Scans for national infrastructure pipelines and investment plans, economic zone master developer appointments, sovereign wealth fund infrastructure mandates, government spending reviews with infrastructure allocations, international financing pledges for national programmes, multi-sector programme management and delivery partner tenders, and major international event infrastructure (Olympics, World Cup, Expos) procurement.',
+    keywords: ['Economic Zone','New City','National Pipeline','Programme Management','Delivery Partner','PMO','Sovereign Wealth','NEOM','Expo','Major Event','Reconstruction','Multi-Sector','National Strategy']
+  },
+  {
+    id: 'env',
+    name: 'Energy, Water & Sustainability',
+    tagline: 'MEP Engineering, Environmental Systems & Sustainability',
+    definition: 'Covers two integrated design consultancy specialisms. First, MEP and MEPF engineering - the design of mechanical, electrical, plumbing and fire systems conceived in harmony with the architecture, together with architectural lighting design, vertical and horizontal transportation engineering, and infrastructure engineering for major buildings. Second, sustainability and climate design - sustainability vision plans and net-zero carbon masterplans at campus, district, city and regional scale; whole life carbon assessment (embodied and operational); retrofit and adaptive reuse of existing buildings; campus energy masterplanning; circular economy strategies; biophilic design; and health and wellbeing frameworks. Scope is design consultancy and engineering - not utility construction, renewable energy farm delivery, or water infrastructure delivery. Both groups are guided by a ten-theme sustainability framework: Wellbeing, Community Impact, Energy and Carbon, Mobility and Connectivity, Resources, Water, Land and Ecology, Social Equity, Planning for Change, and Feedback.',
+    scanning: 'Scans for MEP and MEPF engineering commissions for landmark civic, cultural, healthcare, education and transport projects; sustainable environmental design and analysis appointments; architectural lighting design for major public buildings and spaces; vertical transportation (lifts and escalators) and horizontal transportation engineering; sustainable environmental masterplanning commissions; infrastructure engineering appointments; sustainability vision plan commissions; net-zero and whole life carbon strategy appointments; retrofit and adaptive reuse briefs with sustainability targets; campus energy masterplan and utility vision plan commissions; circular economy and biophilic design framework appointments; climate resilience masterplans; and health and wellbeing masterplans.',
+    keywords: ['MEP','MEPF','Mechanical Engineering','Electrical Engineering','Lighting Design','Vertical Transportation','Lifts','Infrastructure Engineering','Net Zero','Whole Life Carbon','Embodied Carbon','Retrofit','Sustainability Vision','Carbon Masterplan','Campus Energy','Environmental Design','Circular Economy','Biophilia','Wellbeing','Climate Resilience','BREEAM','LEED','Adaptive Reuse','Sustainability Masterplan']
+  }
+];
+
+const DEFINITIONS = [
+  {
+    section: 'About GIA',
+    items: [
+      { name:'Global Iconic Architecture', chips:[], text:'GIA - Global Iconic Architecture - is a category of infrastructure project defined by its scale, ambition and lasting civic or cultural impact. GIA projects are not merely functional; they are intended to become defining landmarks of their city, nation or era. Examples include iconic transit stations, waterfront masterplans, new city quarters, monumental public buildings, and transformational transport corridors.' },
+      { name:'What Makes a GIA Project', chips:[], text:'A GIA project typically combines significant capital investment, architectural ambition, complex multi-stakeholder delivery, and a lasting effect on the built environment. They are often once-in-a-generation opportunities - new metros, major airports, landmark cultural infrastructure, economic zones, or national programmes that reshape how people live, move and work.' },
+      { name:'Why This Tool Exists', chips:[], text:'Strategic Project Discovery is built to identify GIA-category opportunities before they become widely known. By scanning 650+ global procurement portals, publications and databases, the platform surfaces pipeline and live tender opportunities that meet the scale, complexity and ambition of the GIA definition - enabling early positioning and pursuit strategy.' },
+      { name:'GIA Search Parameters', chips:[], text:'Scans are calibrated to GIA-category thresholds. Minimum project value: $50M (below this, projects rarely carry the scale or complexity that defines GIA work). Procurement stages targeted: Pipeline, Procurement and Live Tender (Awarded is included for intelligence only). Project types prioritised: landmark civic and cultural buildings, major transport interchanges and stations, new urban districts and masterplans, waterfront and public realm regeneration, data centre campuses, port and airport expansions, and national programmes of strategic significance. Architectural ambition is weighted alongside capital value - a $100M iconic civic building ranks above a $500M routine road resurfacing framework. The AI is instructed to apply these filters and exclude repetitive low-complexity maintenance contracts, routine goods procurement, and sub-threshold works packages.' },
+    ]
+  },
+  {
+    section: 'Opportunity Fields',
+    items: [
+      { name:'Relevance Score', chips:[{label:'0–100',color:'cyan'}], text:'A 0–100 score generated by the AI indicating how closely the opportunity matches GIA\'s core competencies. Factors include sector alignment, project scale, geography, and procurement stage. Scores above 80 represent strong strategic fits; 60–79 are worth monitoring; below 60 are peripheral.' },
+      { name:'Project Value', chips:[], text:'Estimated total capital value of the project or contract package, sourced from procurement notices, news reports or government announcements. Ranges are used when an exact figure is unavailable. Values are indicative and should be independently verified before engagement.' },
+      { name:'Deadline', chips:[], text:'The anticipated tender submission deadline, programme milestone date, or expected award date. Expressed as a calendar quarter (e.g. Q3 2026). Where no formal deadline is published, this reflects the AI\'s estimate based on programme timelines.' },
+      { name:'Contract Type', chips:[], text:'The procurement or delivery mechanism - e.g. Design & Build, EPC (Engineering, Procurement & Construction), Framework, PPP/PFI, Concession, Management Contract, Early Contractor Involvement (ECI), or Alliance. Determines the risk profile and GIA engagement model.' },
+      { name:'Source', chips:[], text:'The procurement portal, publication or intelligence source where the opportunity was identified. Paywalled sources (marked *) are accessed via publicly indexed excerpts and search engine results - GIA does not hold subscriptions on behalf of clients.' },
+      { name:'Client', chips:[], text:'The procuring authority or contracting entity - typically a government ministry, statutory body, infrastructure agency, or state-owned enterprise issuing the tender or programme.' },
+    ]
+  },
+  {
+    section: 'Project Stage',
+    items: [
+      { name:'Pipeline', chips:[{label:'Pipeline',color:'blue'}], text:'The project has been publicly announced or included in a government investment plan, but formal procurement has not yet commenced. Useful for early positioning, teaming and relationship-building with the client body.' },
+      { name:'Procurement', chips:[{label:'Procurement',color:'amber'}], text:'The project is actively in a pre-tender or tender preparation phase - pre-qualification questionnaires (PQQs), Expressions of Interest (EOIs), or Invitations to Tender (ITTs) have been issued or are imminent. Requires active monitoring.' },
+      { name:'Live Tender', chips:[{label:'Live Tender',color:'green'}], text:'A formal tender is currently open for submission. The opportunity is time-critical - a deadline is active and bid preparation should begin immediately if GIA has not already engaged.' },
+      { name:'Awarded', chips:[{label:'Awarded',color:'red'}], text:'The contract has been publicly awarded. Included for market intelligence - to understand competitor wins, typical award values, and client preferences. May indicate follow-on packages or variations.' },
+    ]
+  },
+  {
+    section: 'Urgency',
+    items: [
+      { name:'High Urgency', chips:[{label:'High',color:'red'}], text:'A live or imminent tender with a deadline within approximately 90 days, or a programme where the window for client engagement is closing rapidly. Requires immediate attention and likely a pre-existing relationship with the client.' },
+      { name:'Medium Urgency', chips:[{label:'Medium',color:'amber'}], text:'Procurement is underway or expected within 3–9 months. Sufficient time to complete pre-qualification, initiate teaming discussions, and develop a pursuit strategy. The recommended action window.' },
+      { name:'Low Urgency', chips:[{label:'Low',color:'green'}], text:'A pipeline or early-stage opportunity with procurement expected beyond 9 months, or a recently awarded contract flagged for market intelligence. Valuable for long-range positioning and capability development.' },
+    ]
+  },
+  {
+    section: 'GIA Fit Assessment',
+    items: [
+      { name:'Sector Fit', chips:[{label:'0–100',color:'cyan'}], text:'How well the opportunity aligns with GIA\'s sector specialisms - High Speed Rail & Metro, Transit-Oriented Development, Urban Regeneration, Data Centres, Ports, Mega Projects, and Energy, Water & Sustainability. A score of 100 means the opportunity sits squarely in GIA\'s core offering.' },
+      { name:'Scale Fit', chips:[{label:'0–100',color:'cyan'}], text:'Whether the project scale (value, complexity, duration) is appropriate for GIA\'s capacity and track record. Very small packages and very large programmes where GIA would be a sub-tier advisor may score lower.' },
+      { name:'Geography Fit', chips:[{label:'0–100',color:'cyan'}], text:'Reflects GIA\'s existing presence, relationships and market knowledge in the project\'s region. Established markets (UK, Europe, GCC, Southeast Asia) score higher than frontier markets where GIA has limited prior engagement.' },
+      { name:'Win Probability', chips:[{label:'0–100',color:'cyan'}], text:'The AI\'s estimate of the likelihood of a successful outcome given sector fit, geography, competition level, procurement type, and stage. This is indicative only - it does not account for incumbent advantages, specific client relationships, or internal resource availability.' },
+      { name:'Assessment Verdict', chips:[], text:'A one-sentence qualitative summary of the opportunity\'s strategic suitability for GIA, synthesising the four fit scores into an actionable recommendation. Verdicts typically recommend: pursue, monitor, or deprioritise.' },
+    ]
+  },
+  {
+    section: 'Infrastructure Sectors',
+    items: [
+      { name:'High Speed Rail & Metro', chips:[{label:'Transport',color:'cyan'}], text:'Planning, design, construction and systems integration of high-speed intercity rail corridors, urban metro lines, light rail transit, tram networks, and associated stations, depots and electrification infrastructure.' },
+      { name:'Transit-Oriented Development', chips:[{label:'Transport',color:'cyan'}], text:'Mixed-use urban development clustered around major transit nodes. Includes station precincts, interchange masterplans, air rights developments, and the integration of residential, commercial and public realm with transport infrastructure.' },
+      { name:'Urban Regeneration & Masterplanning', chips:[{label:'Urban',color:'blue'}], text:'Large-scale transformation of urban areas including waterfront regeneration, brownfield redevelopment, new urban quarters, public realm masterplans, and city-centre revitalisation programmes. Typically involves multi-stakeholder delivery and significant public investment.' },
+      { name:'Data Centres & Tech Infrastructure', chips:[{label:'Digital',color:'amber'}], text:'Design and delivery of hyperscale and enterprise data centres, digital infrastructure campuses, fibre and connectivity networks, and associated power, cooling and resilience systems.' },
+      { name:'Ports & Maritime Infrastructure', chips:[{label:'Maritime',color:'blue'}], text:'Port expansion and modernisation, container terminal development, cruise infrastructure, marine structures, coastal protection, and waterway infrastructure.' },
+      { name:'Mega Projects & National Programmes', chips:[{label:'National',color:'amber'}], text:'Transformational, multi-billion national infrastructure programmes cutting across multiple sectors: new cities, economic zones, national housing delivery, government-backed industrial strategies, post-disaster reconstruction, and multi-modal national infrastructure pipelines.' },
+      { name:'Energy, Water & Sustainability', chips:[{label:'MEP & Climate Design',color:'green'}], text:'Mechanical, electrical, plumbing and fire systems designed in harmony with the architecture, together with architectural lighting design, vertical and horizontal transportation engineering, and infrastructure engineering for major buildings. Sustainability and climate design - sustainability vision plans, net-zero carbon masterplans, whole life carbon assessment (embodied and operational), retrofit and adaptive reuse, campus energy masterplanning, circular economy strategies, biophilic design, and health and wellbeing frameworks. Scope is design consultancy and engineering only - not utility construction or energy/water infrastructure delivery. Guided by a ten-theme sustainability framework: Wellbeing, Community Impact, Energy and Carbon, Mobility, Resources, Water, Land and Ecology, Social Equity, Planning for Change, and Feedback.' },
+    ]
+  },
+  {
+    section: 'Scan Behaviour',
+    items: [
+      { name:'Single Sector Scan', chips:[], text:'Queries the Gemini AI with Google Search grounding for a specific sector and region, returning up to 6 current opportunities. Each scan is independent - re-scanning a sector fetches fresh results and overwrites the previous set.' },
+      { name:'Scan All Sectors', chips:[], text:'Runs a sequential scan across all 7 sectors, with a 4-second pause between each to avoid API rate limits. A full sweep takes approximately 35–50 seconds. Results accumulate across all sectors and can be saved on completion.' },
+      { name:'Region Filter', chips:[], text:'Constrains the AI\'s search to a specific geography. Set to Global by default. Narrowing the region improves result precision but may reduce diversity of opportunities returned. Applies to both single-sector and full scans.' },
+      { name:'Source Filtering', chips:[], text:'The Sources tab lets you enable or disable individual procurement databases and publications. Enabled sources are listed explicitly in the AI prompt, instructing it to prioritise those channels. Disabling sources reduces but does not guarantee exclusion - the AI may still surface results from other channels.' },
+    ]
+  }
+];
+
+function SectorsPanel() {
+  return React.createElement('div', {className:'sectors-wrap'},
+    ...SECTOR_DETAILS.map(s =>
+      React.createElement('div', {key:s.id, className:'sector-card'},
+        React.createElement('div', {className:'sector-card-header'},
+          React.createElement('div', {className:'sector-card-title'}, s.name),
+          React.createElement('span', {className:'sector-card-tag'}, s.tagline)
+        ),
+        React.createElement('div', {className:'sector-card-body'},
+          React.createElement('div', null,
+            React.createElement('div', {className:'sector-section-label'}, 'Definition'),
+            React.createElement('div', {className:'sector-section-text'}, s.definition)
+          ),
+          React.createElement('div', null,
+            React.createElement('div', {className:'sector-section-label'}, 'What We Scan For'),
+            React.createElement('div', {className:'sector-section-text'}, s.scanning)
+          ),
+          React.createElement('div', {style:{gridColumn:'1/-1'}},
+            React.createElement('div', {className:'sector-section-label'}, 'Key Search Terms'),
+            React.createElement('div', {className:'sector-keywords'},
+              ...s.keywords.map(kw => React.createElement('span', {key:kw, className:'sector-kw'}, kw))
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+function DefinitionsPanel() {
+  const chipStyle = {
+    'cyan':  {background:'rgba(0,229,255,0.12)',   color:'#00E5FF', borderColor:'rgba(0,229,255,0.35)'},
+    'blue':  {background:'rgba(68,138,255,0.12)',  color:'#448AFF', borderColor:'rgba(68,138,255,0.35)'},
+    'amber': {background:'rgba(255,171,64,0.12)',  color:'#FFAB40', borderColor:'rgba(255,171,64,0.35)'},
+    'green': {background:'rgba(124,77,255,0.12)',  color:'#7C4DFF', borderColor:'rgba(124,77,255,0.35)'},
+    'red':   {background:'rgba(255,82,82,0.12)',   color:'#FF5252', borderColor:'rgba(255,82,82,0.35)'},
+  };
+  return React.createElement('div', {className:'defs-wrap'},
+    ...DEFINITIONS.map(section =>
+      React.createElement('div', {key:section.section, className:'defs-section'},
+        React.createElement('div', {className:'defs-section-title'}, section.section),
+        React.createElement('div', {className:'defs-grid'},
+          ...section.items.map(item =>
+            React.createElement('div', {key:item.name, className:'def-item'},
+              React.createElement('div', {className:'def-name'},
+                item.name,
+                ...item.chips.map(c => React.createElement('span', {key:c.label, className:'def-chip', style:chipStyle[c.color]}, c.label))
+              ),
+              React.createElement('div', {className:'def-text'}, item.text)
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+function App() {
+  const [active,setActive] = useState(null);
+  const [region,setRegion] = useState('Global');
+  const [results,setResults] = useState({});
+  const [scanning,setScanning] = useState(null);
+  const [error,setError] = useState(null);
+  const [progress,setProgress] = useState(null);
+  const [activeTab,setActiveTab] = useState('results');
+  const [sources,setSources] = useState(ALL_SOURCES.map(s=>({...s,enabled:true})));
+  const [saveFlash,setSaveFlash] = useState(false);
+  const [showLoad,setShowLoad] = useState(false);
+  const [savedSearches,setSavedSearches] = useState(()=>JSON.parse(localStorage.getItem('gia_searches')||'[]'));
+  const loadRef = useRef(null);
+
+  useEffect(() => {
+    if (!showLoad) return;
+    const handler = e => { if (loadRef.current && !loadRef.current.contains(e.target)) setShowLoad(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showLoad]);
+
+  const all = Object.values(results).flat().filter(Boolean);
+  const avgScore = all.length ? Math.round(all.reduce((a,o)=>a+o.relevance,0)/all.length) : '--';
+  const enabledSources = sources.filter(s=>s.enabled);
+
+  const autoDownload = useCallback((sectorName, opps) => {
+    const now = new Date();
+    const ts = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')
+      +'_'+String(now.getHours()).padStart(2,'0')+'-'+String(now.getMinutes()).padStart(2,'0')+'-'+String(now.getSeconds()).padStart(2,'0');
+    const slug = sectorName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'');
+    const clean = v => typeof v === 'string' ? v.replace(/[\x00-\x1F\x7F]/g,' ').trim() : v;
+    const sanitised = JSON.parse(JSON.stringify({timestamp:now.toISOString(), sector:sectorName, region, opportunities:opps}, (_,v)=>clean(v)));
+    const blob = new Blob([JSON.stringify(sanitised,null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${ts}_${slug}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [region]);
+
+  const scan = useCallback(async(s) => {
+    setScanning(s.id); setError(null); setActive(s.id);
+    try {
+      const o = await fetchOpportunities(s.name, region, enabledSources);
+      setResults(r=>({...r,[s.id]:o}));
+      autoDownload(s.name, o);
+    }
+    catch(e) { setError(e.message); }
+    finally { setScanning(null); }
+  }, [region, enabledSources, autoDownload]);
+
+  const scanAll = useCallback(async() => {
+    setError(null);
+    for(let i=0;i<SECTORS.length;i++){
+      const s=SECTORS[i]; setProgress(`${i+1}/${SECTORS.length}`); setScanning(s.id); setActive(s.id);
+      try{
+        const o=await fetchOpportunities(s.name,region,enabledSources);
+        setResults(r=>({...r,[s.id]:o}));
+        autoDownload(s.name, o);
+      }catch(e){}
+      setScanning(null);
+      if(i<SECTORS.length-1) await new Promise(r=>setTimeout(r,4000));
+    }
+    setProgress(null);
+  }, [region, enabledSources, autoDownload]);
+
+  const handleSave = useCallback(() => {
+    // Save to localStorage for Load button
+    const searches = JSON.parse(localStorage.getItem('gia_searches')||'[]');
+    searches.unshift({id:Date.now(), label:`${region} · ${new Date().toLocaleDateString()}`, region, results, savedAt:new Date().toISOString()});
+    const updated = searches.slice(0,10);
+    localStorage.setItem('gia_searches', JSON.stringify(updated));
+    setSavedSearches(updated);
+    // Download all current results as a single JSON file
+    const now = new Date();
+    const ts = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')
+      +'_'+String(now.getHours()).padStart(2,'0')+'-'+String(now.getMinutes()).padStart(2,'0');
+    const clean = v => typeof v === 'string' ? v.replace(/[\x00-\x1F\x7F]/g,' ').trim() : v;
+    const sanitised = JSON.parse(JSON.stringify({timestamp:now.toISOString(), region, results}, (_,v)=>clean(v)));
+    const blob = new Blob([JSON.stringify(sanitised,null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${ts}_all-results.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setSaveFlash(true);
+    setTimeout(()=>setSaveFlash(false), 2000);
+  }, [results, region]);
+
+  const handleLoad = useCallback((search) => {
+    setResults(search.results);
+    setRegion(search.region);
+    setActive(null);
+    setShowLoad(false);
+  }, []);
+
+  const busy = scanning !== null;
+  const cur = active ? (results[active]||[]) : [];
+  const curS = SECTORS.find(s=>s.id===active);
+  const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+
+  const toggleSource = id => setSources(s=>s.map(x=>x.id===id?{...x,enabled:!x.enabled}:x));
+  const toggleCat = (cat, on) => setSources(s=>s.map(x=>x.cat===cat?{...x,enabled:on}:x));
+
+  return React.createElement('div', {id:'root'},
+    React.createElement('div', {className:'topbar'},
+      React.createElement('div', {className:'topbar-logo'},
+        React.createElement('span', {className:'topbar-sub'}, 'Strategic Project Discovery')
+      ),
+      React.createElement('div', {className:'topbar-right'},
+        React.createElement('div', {className:'live-dot'}),
+        React.createElement('div', {className:'topbar-meta'}, 'POWERED BY AI · '+today)
+      )
+    ),
+    React.createElement('div', {className:'main-layout'},
+      React.createElement('div', {className:'sidebar'},
+        React.createElement('div', {className:'sidebar-header'}, 'Infrastructure Sectors'),
+        React.createElement('div', {className:'sidebar-sectors'},
+          ...SECTORS.map(s => React.createElement('div', {
+            key:s.id,
+            className:`sector-item${active===s.id?' active':''}${scanning===s.id?' scanning':''}`,
+            onClick:()=>{ setActive(s.id); setActiveTab('results'); if(!results[s.id]&&scanning!==s.id) scan(s); }
+          },
+            React.createElement('div', {className:'sector-icon'},
+              scanning===s.id
+                ? React.createElement(Icon,{name:'Loader',size:14,style:{animation:'spin 1s linear infinite',color:'var(--cyan)'}})
+                : React.createElement(Icon,{name:s.icon,size:14,style:{color:active===s.id?'var(--cyan)':'var(--tm)'}})
+            ),
+            React.createElement('div', {className:'sector-text'},
+              React.createElement('div', {className:'sector-name'}, s.name),
+              React.createElement('div', {className:'sector-count'}, results[s.id]?`${results[s.id].length} opportunities`:scanning===s.id?'scanning…':'click to scan')
+            ),
+            results[s.id] && React.createElement('div', {className:'sector-badge'}, results[s.id].length)
+          ))
+        ),
+        React.createElement('div', {className:'sidebar-footer'},
+          React.createElement('button', {className:`scan-all-btn${progress?' scanning':''}`, onClick:scanAll, disabled:busy},
+            busy && React.createElement('div', {className:'spinner'}),
+            progress ? `Scanning ${progress}…` : React.createElement(React.Fragment,null,React.createElement(Icon,{name:'ScanLine',size:14}),' Scan All Sectors')
+          )
+        )
+      ),
+      React.createElement('div', {className:'content-panel'},
+        React.createElement('div', {className:'toolbar'},
+          React.createElement('div', {className:'toolbar-title'},
+            activeTab==='sources' ? 'PROCUREMENT SOURCES' : activeTab==='sectors' ? 'SECTOR DEFINITIONS' : activeTab==='definitions' ? 'GLOSSARY & DEFINITIONS' : curS ? curS.name.toUpperCase() : 'SELECT A SECTOR'
+          ),
+          activeTab !== 'sources' && activeTab !== 'sectors' && activeTab !== 'definitions' && React.createElement('select', {className:'region-select', value:region, onChange:e=>setRegion(e.target.value)},
+            ...REGIONS.map(r => React.createElement('option', {key:r, value:r}, r))
+          ),
+          activeTab === 'results' && curS && !['sources','sectors','definitions'].includes(activeTab) && React.createElement('button', {className:'scan-btn', onClick:()=>scan(curS), disabled:busy},
+            scanning===active && React.createElement('div', {className:'spinner'}),
+            scanning===active ? 'Scanning…' : React.createElement(React.Fragment,null,React.createElement(Icon,{name:'RefreshCw',size:12}),' Re-Scan')
+          ),
+          React.createElement('div', {className:'load-wrap', ref:loadRef},
+            React.createElement('button', {className:'action-btn', onClick:()=>setShowLoad(v=>!v)}, React.createElement(Icon,{name:'FolderOpen',size:12}),' Load'),
+            showLoad && React.createElement('div', {className:'load-dropdown'},
+              savedSearches.length === 0
+                ? React.createElement('div', {className:'load-empty'}, 'No saved searches')
+                : savedSearches.map(s =>
+                    React.createElement('div', {key:s.id, className:'load-item', onClick:()=>handleLoad(s)},
+                      React.createElement('div', {className:'load-item-label'}, s.label),
+                      React.createElement('div', {className:'load-item-meta'},
+                        Object.keys(s.results).length + ' sectors · ' + new Date(s.savedAt).toLocaleString()
+                      )
+                    )
+                  )
+            )
+          ),
+        ),
+        React.createElement('div', {className:'tab-bar'},
+          ['results','map','sources','sectors','definitions'].map(tab =>
+            React.createElement('button', {
+              key:tab,
+              className:`tab-btn${activeTab===tab?' active':''}`,
+              onClick:()=>setActiveTab(tab)
+            }, tab==='results'?'Results':tab==='map'?'World Map':tab==='sources'?'Sources':tab==='sectors'?'Sectors':'Definitions')
+          )
+        ),
+        activeTab==='results' && React.createElement('div', {className:'results-area'},
+          error && React.createElement('div', {className:'error-msg'}, '⚠ '+error),
+          !active && React.createElement('div', {className:'empty-state'},
+            React.createElement('div', {className:'empty-icon'}, React.createElement(Icon,{name:'Compass',size:36,strokeWidth:1})),
+            React.createElement('div', {className:'empty-title'}, 'SELECT A SECTOR TO SCAN'),
+            React.createElement('div', {className:'empty-sub'}, 'Choose a sector from the sidebar, or use Scan All Sectors for a full sweep.')
+          ),
+          active&&scanning===active&&cur.length===0 && React.createElement('div', {className:'scanning-state'},
+            React.createElement('div', {className:'scan-ring'}),
+            React.createElement('div', {className:'scan-text'}, 'SCANNING PROCUREMENT CHANNELS'),
+            React.createElement('div', {className:'scan-sub'}, curS?.name+' · '+region)
+          ),
+          active&&scanning!==active&&cur.length===0&&!error && React.createElement('div', {className:'empty-state'},
+            React.createElement('div', {className:'empty-icon'}, React.createElement(Icon,{name:'RefreshCw',size:36,strokeWidth:1})),
+            React.createElement('div', {className:'empty-title'}, 'NO RESULTS YET'),
+            React.createElement('div', {className:'empty-sub'}, 'Click Re-Scan to fetch opportunities.')
+          ),
+          ...cur.map((opp,i) => React.createElement(Card, {key:i, opp, idx:i}))
+        ),
+        activeTab==='map' && React.createElement(MapView, {all}),
+        activeTab==='sources' && React.createElement(SourcesPanel, {
+          sources,
+          onToggle: toggleSource,
+          onToggleCat: toggleCat,
+          onSelectAll: ()=>setSources(s=>s.map(x=>({...x,enabled:true}))),
+          onSelectNone: ()=>setSources(s=>s.map(x=>({...x,enabled:false})))
+        }),
+        activeTab==='sectors' && React.createElement(SectorsPanel, null),
+        activeTab==='definitions' && React.createElement(DefinitionsPanel, null)
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>

@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>GIA — Strategic Project Discovery</title>
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg0:#141413; --bg1:#1a1917; --bg2:#1f1e1c; --bg3:#252321;
+  --bd:#2e2c29; --bdb:#3a3835;
+  --tp:#faf9f5; --ts:#b0aea5; --tm:#6b6966;
+  --cyan:#00E5FF; --cyanD:rgba(0,229,255,0.12);
+  --green:#00E676; --greenD:rgba(0,230,118,0.12);
+  --amber:#FFAB40; --amberD:rgba(255,171,64,0.12);
+  --red:#FF5252; --redD:rgba(255,82,82,0.12);
+  --blue:#448AFF; --blueD:rgba(68,138,255,0.12);
+  --purple:#7C4DFF; --purpleD:rgba(124,77,255,0.12);
+  --mono:'Segoe UI','Segoe UI Variable',Arial,sans-serif;
+  --sans:'Segoe UI','Segoe UI Variable',Arial,sans-serif;
+}
+html,body { background:#0a0908; font-family:var(--mono); color:var(--tp); }
+
+/* ── Deck & slide shell ───────────────────────────────────── */
+.deck { display:flex; flex-direction:column; align-items:center; padding:20px 0 72px; }
+.slide { display:none; width:1280px; height:720px; background:var(--bg0); color:var(--tp); font-family:var(--mono); flex-direction:column; overflow:hidden; position:relative; flex-shrink:0; }
+.slide.active { display:flex; }
+
+/* ── Topbar ──────────────────────────────────────────────── */
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:0 20px; height:52px; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; }
+.topbar-logo { display:flex; align-items:center; gap:10px; font-size:10px; font-weight:600; letter-spacing:0.18em; color:var(--cyan); text-transform:uppercase; }
+.topbar-sub { font-size:10px; color:var(--tm); margin-left:4px; }
+.topbar-right { display:flex; align-items:center; gap:14px; }
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.topbar-meta { font-size:10px; color:var(--tm); letter-spacing:0.06em; }
+.folder-btn { padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--bd); color:var(--tm); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; border-radius:2px; transition:all 0.15s; white-space:nowrap; }
+.folder-btn:hover:not(:disabled) { border-color:var(--bdb); color:var(--ts); }
+.folder-btn:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* ── Statsbar ────────────────────────────────────────────── */
+.statsbar { display:flex; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; }
+.stat-item { display:flex; align-items:center; gap:10px; padding:8px 20px; border-right:1px solid var(--bd); white-space:nowrap; }
+.stat-label { font-size:10px; color:var(--tm); letter-spacing:0.1em; text-transform:uppercase; }
+.stat-value { font-size:15px; font-weight:700; }
+.sv-cyan{color:var(--cyan);} .sv-green{color:var(--green);} .sv-amber{color:var(--amber);} .sv-red{color:var(--red);} .sv-blue{color:var(--blue);}
+
+/* ── Layout ──────────────────────────────────────────────── */
+.main-layout { display:flex; flex:1; overflow:hidden; }
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar { width:260px; flex-shrink:0; background:var(--bg1); border-right:1px solid var(--bd); display:flex; flex-direction:column; }
+.sidebar-header { padding:14px 16px 10px; border-bottom:1px solid var(--bd); font-size:10px; color:var(--tm); letter-spacing:0.12em; text-transform:uppercase; }
+.sector-item { display:flex; align-items:flex-start; gap:10px; padding:10px 16px; border-left:2px solid transparent; }
+.sector-item.active { background:var(--cyanD); border-left-color:var(--cyan); }
+.sector-icon { font-size:13px; color:var(--tm); flex-shrink:0; margin-top:1px; }
+.sector-item.active .sector-icon { color:var(--cyan); }
+.sector-name { font-size:12px; font-weight:500; color:var(--tp); line-height:1.4; font-family:var(--sans); }
+.sector-item.active .sector-name { color:var(--cyan); }
+.sector-count { font-size:10px; color:var(--tm); margin-top:2px; }
+.sector-badge { flex-shrink:0; font-size:10px; font-weight:600; background:var(--bg3); color:var(--tm); border:1px solid var(--bd); padding:2px 5px; border-radius:2px; margin-top:2px; }
+.sector-item.active .sector-badge { background:var(--cyanD); color:var(--cyan); border-color:rgba(0,229,255,0.3); }
+.sidebar-footer { padding:12px 16px; border-top:1px solid var(--bd); margin-top:auto; }
+.scan-all-btn { width:100%; padding:10px; background:var(--cyanD); border:1px solid rgba(0,229,255,0.3); color:var(--cyan); font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; border-radius:2px; display:flex; align-items:center; justify-content:center; gap:8px; }
+
+/* ── Content panel ───────────────────────────────────────── */
+.content-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.toolbar { display:flex; align-items:center; gap:8px; padding:10px 16px; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; flex-wrap:wrap; }
+.toolbar-title { font-size:12px; font-weight:600; letter-spacing:0.06em; flex:1; color:var(--tp); }
+.scan-btn { padding:7px 16px; background:var(--cyanD); border:1px solid rgba(0,229,255,0.3); color:var(--cyan); font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; border-radius:2px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.action-btn { padding:6px 12px; background:var(--bg3); border:1px solid var(--bd); color:var(--ts); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; border-radius:2px; display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.region-chip { background:var(--bg2); border:1px solid var(--bd); color:var(--ts); font-family:var(--mono); font-size:12px; padding:5px 10px; border-radius:2px; }
+
+/* ── Tab bar ─────────────────────────────────────────────── */
+.tab-bar { display:flex; align-items:center; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; padding:0 16px; }
+.tab-btn { padding:10px 16px; font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--tm); font-family:var(--mono); border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tab-btn.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+
+/* ── Results area ────────────────────────────────────────── */
+.results-area { flex:1; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.results-row { display:flex; gap:12px; flex:1; overflow:hidden; }
+
+/* ── Cards ───────────────────────────────────────────────── */
+.result-card { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; overflow:hidden; flex-shrink:0; }
+.result-card.expanded { border-color:var(--cyan); }
+.result-card.flex1 { flex:1; }
+.card-header { padding:12px 14px; display:flex; align-items:flex-start; gap:12px; }
+.card-score-col { display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
+.score-ring { width:44px; height:44px; position:relative; }
+.score-ring svg { width:44px; height:44px; transform:rotate(-90deg); position:absolute; top:0; left:0; }
+.score-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+.score-text { font-size:10px; color:var(--tm); letter-spacing:0.06em; text-transform:uppercase; }
+.card-main { flex:1; min-width:0; }
+.card-badges { display:flex; align-items:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
+.badge { font-size:10px; font-weight:600; padding:2px 7px; border-radius:1px; letter-spacing:0.08em; text-transform:uppercase; border:1px solid; display:inline-block; }
+.b-pipeline { background:rgba(68,138,255,0.12); color:#448AFF; border-color:rgba(68,138,255,0.35); }
+.b-procurement { background:rgba(255,171,64,0.12); color:#FFAB40; border-color:rgba(255,171,64,0.35); }
+.b-live { background:rgba(0,229,255,0.12); color:#00E5FF; border-color:rgba(0,229,255,0.35); }
+.b-awarded { background:rgba(255,82,82,0.12); color:#FF5252; border-color:rgba(255,82,82,0.35); }
+.b-high { background:rgba(255,82,82,0.12); color:#FF5252; border-color:rgba(255,82,82,0.35); }
+.b-medium { background:rgba(255,171,64,0.12); color:#FFAB40; border-color:rgba(255,171,64,0.35); }
+.b-low { background:rgba(124,77,255,0.12); color:#7C4DFF; border-color:rgba(124,77,255,0.35); }
+.b-region { background:var(--bg3); color:var(--ts); border-color:var(--bd); }
+.b-cyan { background:var(--cyanD); color:var(--cyan); border-color:rgba(0,229,255,0.35); }
+.b-green { background:var(--greenD); color:var(--green); border-color:rgba(0,230,118,0.35); }
+.card-title { font-size:15px; font-weight:600; color:var(--tp); line-height:1.4; margin-bottom:4px; font-family:var(--sans); }
+.card-title-sm { font-size:13px; font-weight:600; color:var(--tp); line-height:1.4; margin-bottom:4px; font-family:var(--sans); }
+.card-client { font-size:12px; color:var(--ts); }
+.card-meta { display:flex; align-items:center; gap:16px; margin-top:8px; flex-wrap:wrap; }
+.meta-item { font-size:10px; color:var(--tm); display:flex; align-items:center; gap:4px; }
+.meta-item span { color:var(--ts); }
+.card-body { border-top:1px solid var(--bd); padding:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.card-body.single { grid-template-columns:1fr; }
+.card-body.cols3 { grid-template-columns:1fr 1fr 1fr; }
+.detail-title { font-size:10px; color:var(--tm); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.detail-title::after { content:''; flex:1; height:1px; background:var(--bd); }
+.detail-text { font-size:12px; color:var(--ts); line-height:1.7; font-family:var(--sans); }
+.detail-text-sm { font-size:11px; color:var(--ts); line-height:1.65; font-family:var(--sans); }
+
+/* ── GIA panel ───────────────────────────────────────────── */
+.gia-panel { background:var(--bg3); border:1px solid var(--bdb); border-radius:2px; padding:12px; }
+.gia-panel.full { grid-column:1/-1; }
+.gia-title { font-size:10px; color:var(--cyan); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.gia-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.gia-grid2 { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.gia-item-label { font-size:10px; color:var(--tm); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px; }
+.gia-bar-wrap { height:4px; background:var(--bg0); border-radius:2px; overflow:hidden; margin-bottom:3px; }
+.gia-bar { height:100%; border-radius:2px; }
+.gb-high { background:#00E676; } .gb-medium { background:#FFAB40; } .gb-low { background:#FF5252; }
+.gia-item-val { font-size:10px; color:var(--ts); }
+.gia-verdict { margin-top:10px; padding-top:10px; border-top:1px solid var(--bd); font-size:12px; color:var(--ts); font-family:var(--sans); line-height:1.6; }
+.gia-verdict strong { color:var(--cyan); font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; }
+
+/* ── Sector cards ────────────────────────────────────────── */
+.sector-card { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; overflow:hidden; flex:1; }
+.sector-card-header { padding:14px 18px 12px; border-bottom:1px solid var(--bd); }
+.sector-card-title { font-size:15px; font-weight:600; color:var(--tp); margin-bottom:6px; font-family:var(--sans); }
+.sector-card-tag { display:inline-block; font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; padding:2px 8px; border-radius:1px; border:1px solid; background:var(--cyanD); color:var(--cyan); border-color:rgba(0,229,255,0.3); }
+.sector-card-body { padding:14px 18px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.sector-section-label { font-size:10px; color:var(--cyan); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:6px; }
+.sector-section-text { font-size:11px; color:var(--ts); line-height:1.7; font-family:var(--sans); }
+.sector-keywords { display:flex; flex-wrap:wrap; gap:5px; margin-top:4px; }
+.sector-kw { font-size:10px; color:var(--ts); background:var(--bg3); border:1px solid var(--bd); border-radius:2px; padding:2px 7px; font-family:var(--mono); }
+
+/* ── Defs ────────────────────────────────────────────────── */
+.defs-section { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; overflow:hidden; }
+.defs-section-title { padding:10px 16px; border-bottom:1px solid var(--bd); font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--cyan); }
+.defs-grid { display:grid; }
+.def-item { padding:12px 16px; border-right:1px solid var(--bd); border-bottom:1px solid var(--bd); }
+.def-name { font-size:13px; font-weight:600; color:var(--tp); margin-bottom:5px; font-family:var(--sans); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.def-chip { font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:2px 6px; border-radius:1px; border:1px solid; }
+.def-text { font-size:11px; color:var(--ts); line-height:1.7; font-family:var(--sans); }
+
+/* ── Sources ─────────────────────────────────────────────── */
+.source-group { background:var(--bg2); border:1px solid var(--bd); border-radius:3px; padding:10px 12px; }
+.source-cat-label { font-size:10px; color:var(--cyan); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:8px; display:block; }
+.source-item { display:flex; align-items:baseline; gap:6px; padding:3px 0; font-size:11px; color:var(--ts); font-family:var(--sans); border-bottom:1px solid var(--bd); line-height:1.4; }
+.source-item:last-child { border-bottom:none; }
+.src-num { font-size:10px; font-weight:700; color:var(--cyan); font-family:var(--mono); flex-shrink:0; }
+.src-names { font-size:10px; color:var(--tm); line-height:1.4; }
+
+/* ── Navigation ──────────────────────────────────────────── */
+.nav-bar { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:10px; background:var(--bg1); border:1px solid var(--bdb); border-radius:3px; padding:7px 14px; z-index:1000; }
+.nav-counter { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--tm); min-width:52px; text-align:center; }
+
+/* ── Utility ─────────────────────────────────────────────── */
+.full-pad { padding:16px; flex:1; overflow:hidden; display:flex; flex-direction:column; gap:12px; }
+.row { display:flex; gap:12px; }
+.col { display:flex; flex-direction:column; gap:12px; }
+.flex1 { flex:1; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.grid4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; }
+.tm { color:var(--tm); } .ts { color:var(--ts); } .tc { color:var(--cyan); }
+.f10 { font-size:10px; } .f11 { font-size:11px; } .f12 { font-size:12px; }
+.lh17 { line-height:1.7; } .lsp { letter-spacing:0.1em; }
+.uc { text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ═══════ SLIDE 01 — PLATFORM OVERVIEW ══════════════════ -->
+<div class="slide active" id="slide-1">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">01 — PLATFORM OVERVIEW</span>
+      <button class="folder-btn" id="p1" onclick="go(-1)" disabled>← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="statsbar">
+    <div class="stat-item"><span class="stat-label">Procurement Sources</span><span class="stat-value sv-cyan">650+</span></div>
+    <div class="stat-item"><span class="stat-label">Target Sectors</span><span class="stat-value sv-cyan">7</span></div>
+    <div class="stat-item"><span class="stat-label">Global Regions</span><span class="stat-value sv-cyan">6</span></div>
+    <div class="stat-item"><span class="stat-label">Min. Project Value</span><span class="stat-value sv-amber">$50M</span></div>
+    <div class="stat-item"><span class="stat-label">AI Engine</span><span class="stat-value sv-green">Gemini 2.5 Flash</span></div>
+  </div>
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="sidebar-header">Target Sectors</div>
+      <div style="flex:1;overflow:hidden;padding:6px 0;">
+        <div class="sector-item active"><div class="sector-icon">◉</div><div><div class="sector-name">High Speed Rail &amp; Metro</div><div class="sector-count">Fixed-Guideway Rapid Transit</div></div><div class="sector-badge">12</div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Transit-Oriented Development</div><div class="sector-count">Mixed-Use Intensification</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Urban Regeneration &amp; Masterplanning</div><div class="sector-count">Large-Scale Place Transformation</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Data Centres &amp; Tech Infrastructure</div><div class="sector-count">Digital &amp; Compute Infrastructure</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Ports &amp; Maritime Infrastructure</div><div class="sector-count">Seaport, Inland &amp; Offshore Marine</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Mega Projects &amp; National Programmes</div><div class="sector-count">Strategic National Investment</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Energy, Water &amp; Sustainability</div><div class="sector-count">MEP Engineering &amp; Climate Design</div></div></div>
+      </div>
+      <div class="sidebar-footer"><div class="scan-all-btn">⟳&nbsp; Scan All Sectors</div></div>
+    </div>
+    <div class="content-panel">
+      <div class="toolbar">
+        <span class="toolbar-title">High Speed Rail &amp; Metro — Global</span>
+        <div class="region-chip">Global</div>
+        <div class="scan-btn">⟳&nbsp; Scan Sector</div>
+        <div class="action-btn">↓ Export CSV</div>
+        <div class="action-btn">⊞ Save</div>
+      </div>
+      <div class="tab-bar">
+        <span class="tab-btn active">Results</span>
+        <span class="tab-btn">Map</span>
+        <span class="tab-btn">Sources</span>
+        <span class="tab-btn">Sectors</span>
+        <span class="tab-btn">Definitions</span>
+      </div>
+      <div class="results-area">
+        <div class="result-card expanded">
+          <div class="card-header">
+            <div class="card-score-col">
+              <div class="score-ring">
+                <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#00E676" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:12.82"/></svg>
+                <div class="score-label" style="color:#00E676">88</div>
+              </div>
+              <div class="score-text">Relevance</div>
+            </div>
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-live">Live Tender</span><span class="badge b-high">High</span><span class="badge b-region">Saudi Arabia</span><span class="badge b-region">£4.2bn</span></div>
+              <div class="card-title">Riyadh Metro Phase 2 — Stations &amp; Systems Integration Package</div>
+              <div class="card-client">Arriyadh Development Authority (ADA)</div>
+              <div class="card-meta">
+                <div class="meta-item">◷ <span>Q3 2025</span></div>
+                <div class="meta-item">⊟ <span>Design &amp; Build</span></div>
+                <div class="meta-item">⊕ <span>Etimad / GCC Tenders Portal</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div>
+              <div class="detail-title">Opportunity Overview</div>
+              <div class="detail-text">Design, build and systems integration for 12 new metro stations and depot facilities on the Phase 2 extension. Includes architectural design packages, MEP engineering and full station systems integration across above-ground and underground stations.</div>
+            </div>
+            <div>
+              <div class="detail-title">Strategic Context</div>
+              <div class="detail-text">Part of Saudi Vision 2030's urban transport investment programme. ADA is seeking experienced international design teams with prior metro station delivery at scale. Strong GIA alignment across station design, systems and sustainability. Pre-qualification shortlisting underway.</div>
+            </div>
+            <div class="gia-panel full">
+              <div class="gia-title">◎ GIA Fit Assessment</div>
+              <div class="gia-grid">
+                <div><div class="gia-item-label">Sector Fit</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:92%"></div></div><div class="gia-item-val">92%</div></div>
+                <div><div class="gia-item-label">Scale Fit</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:85%"></div></div><div class="gia-item-val">85%</div></div>
+                <div><div class="gia-item-label">Geography Fit</div><div class="gia-bar-wrap"><div class="gia-bar gb-medium" style="width:74%"></div></div><div class="gia-item-val">74%</div></div>
+                <div><div class="gia-item-label">Win Probability</div><div class="gia-bar-wrap"><div class="gia-bar gb-medium" style="width:68%"></div></div><div class="gia-item-val">68%</div></div>
+              </div>
+              <div class="gia-verdict"><strong>Assessment: </strong>Strong sector and scale alignment — pursue actively. GCC market knowledge is developing; consider a local partner to strengthen geography fit and client access before ITT submission.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 02 — WHAT IS GIA? ═══════════════════════ -->
+<div class="slide" id="slide-2">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">02 — WHAT IS GIA?</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="statsbar">
+    <div class="stat-item"><span class="stat-label">Category</span><span class="stat-value sv-cyan">Global Iconic Architecture</span></div>
+    <div class="stat-item"><span class="stat-label">Defining Quality</span><span class="stat-value sv-ts" style="color:var(--ts)">Scale + Ambition + Impact</span></div>
+    <div class="stat-item"><span class="stat-label">Minimum Value</span><span class="stat-value sv-amber">$50M</span></div>
+    <div class="stat-item"><span class="stat-label">Sources Scanned</span><span class="stat-value sv-cyan">650+</span></div>
+  </div>
+  <div class="full-pad" style="flex-direction:row;">
+    <div class="result-card flex1">
+      <div class="card-header">
+        <div class="card-score-col">
+          <div class="score-ring">
+            <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#00E676" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:0"/></svg>
+            <div class="score-label" style="color:#00E676">GIA</div>
+          </div>
+          <div class="score-text">Category</div>
+        </div>
+        <div class="card-main">
+          <div class="card-badges"><span class="badge b-cyan">Definition</span></div>
+          <div class="card-title">Global Iconic Architecture</div>
+          <div class="card-client">GIA — Project Category Definition</div>
+        </div>
+      </div>
+      <div class="card-body single">
+        <div>
+          <div class="detail-title">What It Means</div>
+          <div class="detail-text">GIA is a category of infrastructure project defined by its scale, ambition and lasting civic or cultural impact. GIA projects are not merely functional — they are intended to become defining landmarks of their city, nation or era.</div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="detail-title">Examples</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;">
+            <span class="sector-kw">Iconic Transit Stations</span>
+            <span class="sector-kw">Waterfront Masterplans</span>
+            <span class="sector-kw">New City Quarters</span>
+            <span class="sector-kw">Transformational Corridors</span>
+            <span class="sector-kw">Monumental Public Buildings</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="result-card flex1">
+      <div class="card-header">
+        <div class="card-score-col">
+          <div class="score-ring">
+            <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#00E676" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:0"/></svg>
+            <div class="score-label" style="color:#00E676">4</div>
+          </div>
+          <div class="score-text">Qualities</div>
+        </div>
+        <div class="card-main">
+          <div class="card-badges"><span class="badge b-cyan">Criteria</span></div>
+          <div class="card-title">What Makes a GIA Project</div>
+          <div class="card-client">Four Defining Characteristics</div>
+        </div>
+      </div>
+      <div class="card-body single">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div><div class="detail-title">01 — Capital Investment</div><div class="detail-text-sm">Significant capital value — minimum $50M — sufficient to warrant the scale and complexity of GIA-category delivery.</div></div>
+          <div><div class="detail-title">02 — Architectural Ambition</div><div class="detail-text-sm">Projects intended to become defining landmarks — not merely functional infrastructure but civic and cultural assets of lasting significance.</div></div>
+          <div><div class="detail-title">03 — Complex Multi-Stakeholder Delivery</div><div class="detail-text-sm">Specialist advisory capability required across planning, engineering and design. Not routine construction delivery.</div></div>
+          <div><div class="detail-title">04 — Lasting Effect on the Built Environment</div><div class="detail-text-sm">Once-in-a-generation opportunities that reshape how people live, move and work in cities and regions.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="result-card flex1">
+      <div class="card-header">
+        <div class="card-score-col">
+          <div class="score-ring">
+            <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#00E676" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:0"/></svg>
+            <div class="score-label" style="color:#00E676">650</div>
+          </div>
+          <div class="score-text">Sources</div>
+        </div>
+        <div class="card-main">
+          <div class="card-badges"><span class="badge b-green">Platform</span></div>
+          <div class="card-title">Why This Tool Exists</div>
+          <div class="card-client">Strategic Intelligence — Early Positioning</div>
+        </div>
+      </div>
+      <div class="card-body single">
+        <div>
+          <div class="detail-title">Purpose</div>
+          <div class="detail-text">Built to identify GIA-category opportunities before they become widely known. By scanning 650+ global procurement portals, publications and databases, the platform surfaces pipeline and live tender opportunities meeting the GIA threshold — enabling early positioning and pursuit strategy.</div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="gia-panel">
+            <div class="gia-title">◎ Coverage</div>
+            <div class="gia-grid2">
+              <div><div class="gia-item-label">Sources Scanned</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:100%"></div></div><div class="gia-item-val">650+</div></div>
+              <div><div class="gia-item-label">Target Sectors</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:100%"></div></div><div class="gia-item-val">7</div></div>
+              <div><div class="gia-item-label">Global Regions</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:86%"></div></div><div class="gia-item-val">6</div></div>
+              <div><div class="gia-item-label">Source Categories</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:100%"></div></div><div class="gia-item-val">25+</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 03 — SEARCH PARAMETERS ══════════════════ -->
+<div class="slide" id="slide-3">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">03 — GIA SEARCH PARAMETERS</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="toolbar">
+      <span class="toolbar-title">Search Parameters &amp; Calibration — All Sectors / Global</span>
+      <div class="region-chip">Global</div>
+      <div class="scan-btn">⟳&nbsp; Scan All Sectors</div>
+    </div>
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn active">Definitions</span>
+    </div>
+    <div class="full-pad" style="flex-direction:row; gap:14px;">
+      <div class="col" style="flex:0 0 260px;">
+        <div class="result-card">
+          <div class="card-header" style="flex-direction:column; gap:6px;">
+            <div class="card-badges"><span class="badge b-amber">Threshold</span></div>
+            <div style="font-size:36px; font-weight:800; color:var(--amber); letter-spacing:-0.02em; line-height:1;">$50M</div>
+            <div class="card-client">Minimum project capital value</div>
+            <div class="detail-text-sm" style="margin-top:4px;">Below this threshold, projects rarely carry the scale or complexity that defines GIA work. Architectural ambition is weighted alongside raw capital value.</div>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="card-header" style="flex-direction:column; gap:6px; padding-bottom:10px;">
+            <div class="card-badges"><span class="badge b-cyan">AI Weighting</span></div>
+            <div class="card-title-sm">Ambition Over Volume</div>
+            <div class="detail-text-sm">A $100M iconic civic building ranks above a $500M routine road resurfacing framework. Repetitive low-complexity maintenance, routine goods procurement and sub-threshold works packages are filtered out.</div>
+          </div>
+        </div>
+      </div>
+      <div class="col flex1">
+        <div class="defs-section" style="flex:0 0 auto;">
+          <div class="defs-section-title">Procurement Stages Targeted</div>
+          <div class="defs-grid" style="grid-template-columns:repeat(4,1fr);">
+            <div class="def-item">
+              <div class="def-name"><span class="badge b-pipeline">Pipeline</span></div>
+              <div class="def-text">Announced — procurement not yet commenced. Best window for early positioning and client relationship-building.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name"><span class="badge b-procurement">Procurement</span></div>
+              <div class="def-text">PQQs, EOIs or ITTs issued or imminent. Requires active monitoring and teaming decisions.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name"><span class="badge b-live">Live Tender</span></div>
+              <div class="def-text">Formal tender currently open. Time-critical — begin bid preparation immediately.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name"><span class="badge b-awarded">Awarded</span></div>
+              <div class="def-text">Contract awarded. Included for market intelligence — competitor wins, values, client preferences.</div>
+            </div>
+          </div>
+        </div>
+        <div class="defs-section flex1">
+          <div class="defs-section-title">Project Types Prioritised</div>
+          <div class="defs-grid" style="grid-template-columns:repeat(3,1fr); flex:1;">
+            <div class="def-item">
+              <div class="def-name">Landmark Civic &amp; Cultural Buildings</div>
+              <div class="def-text">Museums, concert halls, civic centres, libraries — buildings with lasting architectural significance and public impact.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">Major Transport Interchanges &amp; Stations</div>
+              <div class="def-text">Metro stations, HSR termini, airport terminals and multimodal interchanges that function as civic landmarks.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">New Urban Districts &amp; Masterplans</div>
+              <div class="def-text">New city quarters, waterfront regeneration, brownfield masterplans and district-scale public realm programmes.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">Data Centre Campuses</div>
+              <div class="def-text">Hyperscale and colocation campuses with significant architectural and infrastructure complexity.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">Port &amp; Airport Expansions</div>
+              <div class="def-text">Major terminal expansions, new container facilities, cruise infrastructure and satellite terminals.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">National Programmes of Strategic Significance</div>
+              <div class="def-text">New cities, economic zones, sovereign wealth-backed programmes, post-disaster reconstruction, major event infrastructure.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 04 — TARGET SECTORS ═════════════════════ -->
+<div class="slide" id="slide-4">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">04 — TARGET SECTORS</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="statsbar">
+    <div class="stat-item"><span class="stat-label">Total Sectors</span><span class="stat-value sv-cyan">7</span></div>
+    <div class="stat-item"><span class="stat-label">Transport</span><span class="stat-value sv-blue">2</span></div>
+    <div class="stat-item"><span class="stat-label">Urban &amp; Real Estate</span><span class="stat-value sv-amber">2</span></div>
+    <div class="stat-item"><span class="stat-label">Digital</span><span class="stat-value sv-ts" style="color:var(--purple)">1</span></div>
+    <div class="stat-item"><span class="stat-label">Maritime</span><span class="stat-value sv-ts" style="color:var(--ts)">1</span></div>
+    <div class="stat-item"><span class="stat-label">National/MEP</span><span class="stat-value sv-green">2</span></div>
+  </div>
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="sidebar-header">7 Target Sectors</div>
+      <div style="overflow:hidden;padding:6px 0;">
+        <div class="sector-item active"><div class="sector-icon">◉</div><div><div class="sector-name">High Speed Rail &amp; Metro</div><div class="sector-count">Fixed-Guideway Rapid Transit</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Transit-Oriented Development</div><div class="sector-count">Mixed-Use Intensification</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Urban Regeneration &amp; Masterplanning</div><div class="sector-count">Large-Scale Place Transformation</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Data Centres &amp; Tech Infrastructure</div><div class="sector-count">Digital &amp; Compute Infrastructure</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Ports &amp; Maritime Infrastructure</div><div class="sector-count">Seaport, Inland &amp; Offshore Marine</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Mega Projects &amp; National Programmes</div><div class="sector-count">Strategic National Investment</div></div></div>
+        <div class="sector-item"><div class="sector-icon">○</div><div><div class="sector-name">Energy, Water &amp; Sustainability</div><div class="sector-count">MEP Engineering &amp; Climate Design</div></div></div>
+      </div>
+    </div>
+    <div class="content-panel">
+      <div class="tab-bar">
+        <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn active">Sectors</span><span class="tab-btn">Definitions</span>
+      </div>
+      <div class="full-pad" style="flex-direction:row; flex-wrap:wrap; gap:10px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%;">
+          <div class="sector-card">
+            <div class="sector-card-header"><div class="sector-card-title">High Speed Rail &amp; Metro</div><span class="sector-card-tag">Fixed-Guideway Rapid Transit</span></div>
+            <div class="sector-card-body" style="grid-template-columns:1fr;padding:12px 18px;">
+              <div class="detail-text-sm">Planning, design, construction and systems integration of HSR corridors (200 km/h+), urban metro lines, LRT, tram networks, stations, depots and electrification. Covers both greenfield new builds and capacity-expansion programmes.</div>
+              <div class="sector-keywords" style="margin-top:8px;"><span class="sector-kw">Metro</span><span class="sector-kw">LRT</span><span class="sector-kw">HSR</span><span class="sector-kw">ETCS</span><span class="sector-kw">CBTC</span><span class="sector-kw">Electrification</span><span class="sector-kw">Tunnelling</span><span class="sector-kw">Station Design</span><span class="sector-kw">OLE</span></div>
+            </div>
+          </div>
+          <div class="sector-card">
+            <div class="sector-card-header"><div class="sector-card-title">Transit-Oriented Development</div><span class="sector-card-tag">Mixed-Use Urban Intensification</span></div>
+            <div class="sector-card-body" style="grid-template-columns:1fr;padding:12px 18px;">
+              <div class="detail-text-sm">High-density mixed-use districts centred on a transit node — within 800m of a rail station, BRT stop or metro entrance. Encompasses air rights, station precincts, interchange masterplans, land value capture and joint development agreements.</div>
+              <div class="sector-keywords" style="margin-top:8px;"><span class="sector-kw">Air Rights</span><span class="sector-kw">Station Precinct</span><span class="sector-kw">Masterplan</span><span class="sector-kw">Transit Hub</span><span class="sector-kw">Joint Development</span><span class="sector-kw">Land Value Capture</span></div>
+            </div>
+          </div>
+          <div class="sector-card">
+            <div class="sector-card-header"><div class="sector-card-title">Urban Regeneration &amp; Masterplanning</div><span class="sector-card-tag">Large-Scale Place Transformation</span></div>
+            <div class="sector-card-body" style="grid-template-columns:1fr;padding:12px 18px;">
+              <div class="detail-text-sm">Comprehensive redevelopment of urban areas — brownfield remediation, waterfront regeneration, new towns, district infrastructure, public buildings and renewal of deprived or post-industrial neighbourhoods. Involves development corporations and enterprise zones.</div>
+              <div class="sector-keywords" style="margin-top:8px;"><span class="sector-kw">Brownfield</span><span class="sector-kw">Waterfront</span><span class="sector-kw">Masterplan</span><span class="sector-kw">Development Corporation</span><span class="sector-kw">Garden City</span><span class="sector-kw">Housing Zone</span></div>
+            </div>
+          </div>
+          <div class="sector-card">
+            <div class="sector-card-header"><div class="sector-card-title">Data Centres &amp; Tech Infrastructure</div><span class="sector-card-tag">Digital &amp; Compute Infrastructure</span></div>
+            <div class="sector-card-body" style="grid-template-columns:1fr;padding:12px 18px;">
+              <div class="detail-text-sm">Hyperscale, colocation and edge data centres; subsea and terrestrial fibre; 5G and open RAN; satellite ground stations; smart city IoT and digital twin platforms; and the power and cooling systems that support them.</div>
+              <div class="sector-keywords" style="margin-top:8px;"><span class="sector-kw">Hyperscale</span><span class="sector-kw">Colocation</span><span class="sector-kw">Fibre</span><span class="sector-kw">5G</span><span class="sector-kw">Smart City</span><span class="sector-kw">IoT</span><span class="sector-kw">Data Hall</span><span class="sector-kw">Digital Twin</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 05 — SECTOR DEEP DIVES ══════════════════ -->
+<div class="slide" id="slide-5">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">05 — SECTOR DEEP DIVES</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn active">Sectors</span><span class="tab-btn">Definitions</span>
+    </div>
+    <div class="full-pad" style="flex-direction:row;">
+      <div class="sector-card">
+        <div class="sector-card-header">
+          <div class="sector-card-title">High Speed Rail &amp; Metro</div>
+          <span class="sector-card-tag">Fixed-Guideway Rapid Transit</span>
+        </div>
+        <div class="sector-card-body">
+          <div>
+            <div class="sector-section-label">Definition</div>
+            <div class="sector-section-text">Planning, design, construction and systems integration of high-speed intercity rail corridors (typically 200 km/h+), conventional heavy rail upgrades, urban metro lines, light rail transit (LRT), tram networks, and associated stations, depots and electrification infrastructure.</div>
+          </div>
+          <div>
+            <div class="sector-section-label">What We Scan For</div>
+            <div class="sector-section-text">New line authorisations, civil works packages (tunnelling, viaducts, earthworks), rolling stock procurement, signalling and ETCS/CBTC contracts, station design competitions, depot construction, electrification schemes, and track renewal frameworks. Covers both greenfield new builds and capacity-expansion programmes on existing networks.</div>
+          </div>
+          <div style="grid-column:1/-1;">
+            <div class="sector-section-label">Key Search Terms</div>
+            <div class="sector-keywords">
+              <span class="sector-kw">Metro</span><span class="sector-kw">LRT</span><span class="sector-kw">HSR</span><span class="sector-kw">Signalling</span><span class="sector-kw">ETCS</span><span class="sector-kw">CBTC</span><span class="sector-kw">Electrification</span><span class="sector-kw">Tunnelling</span><span class="sector-kw">Viaduct</span><span class="sector-kw">Station Design</span><span class="sector-kw">Rolling Stock</span><span class="sector-kw">Track Renewal</span><span class="sector-kw">Depot</span><span class="sector-kw">OLE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sector-card">
+        <div class="sector-card-header">
+          <div class="sector-card-title">Energy, Water &amp; Sustainability</div>
+          <span class="sector-card-tag">MEP Engineering &amp; Climate Design</span>
+        </div>
+        <div class="sector-card-body">
+          <div>
+            <div class="sector-section-label">Definition</div>
+            <div class="sector-section-text">Two integrated design consultancy specialisms. MEP and MEPF engineering — mechanical, electrical, plumbing and fire systems in harmony with architecture, plus lighting design and vertical/horizontal transportation engineering. And sustainability and climate design — net-zero masterplans, whole life carbon (embodied + operational), retrofit, campus energy masterplanning, circular economy, biophilic design and wellbeing frameworks. Scope is design consultancy only — not utility construction or energy/water infrastructure delivery.</div>
+          </div>
+          <div>
+            <div class="sector-section-label">What We Scan For</div>
+            <div class="sector-section-text">MEP/MEPF commissions for landmark civic, cultural, healthcare, education and transport projects; sustainability vision plans; net-zero strategy appointments; whole life carbon assessments; retrofit briefs; campus energy masterplans; circular economy frameworks; climate resilience masterplans; health and wellbeing masterplans. Guided by a ten-theme sustainability framework: Wellbeing, Community Impact, Energy &amp; Carbon, Mobility, Resources, Water, Land &amp; Ecology, Social Equity, Planning for Change, Feedback.</div>
+          </div>
+          <div style="grid-column:1/-1;">
+            <div class="sector-section-label">Key Search Terms</div>
+            <div class="sector-keywords">
+              <span class="sector-kw">MEP</span><span class="sector-kw">MEPF</span><span class="sector-kw">Net Zero</span><span class="sector-kw">Whole Life Carbon</span><span class="sector-kw">Embodied Carbon</span><span class="sector-kw">Retrofit</span><span class="sector-kw">Sustainability Vision</span><span class="sector-kw">Carbon Masterplan</span><span class="sector-kw">Campus Energy</span><span class="sector-kw">Environmental Design</span><span class="sector-kw">BREEAM</span><span class="sector-kw">LEED</span><span class="sector-kw">Adaptive Reuse</span><span class="sector-kw">Biophilia</span><span class="sector-kw">Lighting Design</span><span class="sector-kw">Vertical Transportation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 06 — OPPORTUNITY FIELDS ══════════════════ -->
+<div class="slide" id="slide-6">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">06 — OPPORTUNITY FIELDS</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn active">Definitions</span>
+    </div>
+    <div class="full-pad">
+      <div class="defs-section flex1">
+        <div class="defs-section-title">Opportunity Fields — How Results Are Structured</div>
+        <div class="defs-grid" style="grid-template-columns:repeat(3,1fr); height:calc(100% - 37px);">
+          <div class="def-item">
+            <div class="def-name">Relevance Score <span class="def-chip b-cyan">0 – 100</span></div>
+            <div class="def-text">AI-generated score indicating how closely the opportunity matches GIA's core competencies — sector alignment, project scale, geography, and procurement stage. Scores above 80 represent strong strategic fits; 60–79 are worth monitoring; below 60 are peripheral.</div>
+          </div>
+          <div class="def-item">
+            <div class="def-name">Project Value</div>
+            <div class="def-text">Estimated total capital value of the project or contract package, sourced from procurement notices, news reports or government announcements. Ranges are used when an exact figure is unavailable. Values are indicative and should be independently verified before engagement.</div>
+          </div>
+          <div class="def-item">
+            <div class="def-name">Deadline</div>
+            <div class="def-text">The anticipated tender submission deadline, programme milestone date, or expected award date. Expressed as a calendar quarter (e.g. Q3 2026). Where no formal deadline is published, this reflects the AI's estimate based on programme timelines.</div>
+          </div>
+          <div class="def-item">
+            <div class="def-name">Contract Type</div>
+            <div class="def-text">The procurement or delivery mechanism — determines the risk profile and GIA engagement model.</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">
+              <span class="sector-kw">Design &amp; Build</span><span class="sector-kw">EPC</span><span class="sector-kw">Framework</span><span class="sector-kw">PPP/PFI</span><span class="sector-kw">Concession</span><span class="sector-kw">ECI</span><span class="sector-kw">Alliance</span>
+            </div>
+          </div>
+          <div class="def-item">
+            <div class="def-name">Source</div>
+            <div class="def-text">The procurement portal, publication or intelligence source where the opportunity was identified. Paywalled sources (marked *) are accessed via publicly indexed excerpts and search engine results — GIA does not hold subscriptions on behalf of clients.</div>
+          </div>
+          <div class="def-item">
+            <div class="def-name">Client</div>
+            <div class="def-text">The procuring authority or contracting entity issuing the tender or programme.</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">
+              <span class="sector-kw">Government Ministry</span><span class="sector-kw">Statutory Body</span><span class="sector-kw">Infrastructure Agency</span><span class="sector-kw">State-Owned Enterprise</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 07 — PROJECT STAGES ═════════════════════ -->
+<div class="slide" id="slide-7">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">07 — PROJECT STAGES</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn active">Definitions</span>
+    </div>
+    <div class="full-pad">
+      <div class="defs-section flex1">
+        <div class="defs-section-title">Project Stage — Procurement Lifecycle</div>
+        <div class="defs-grid" style="grid-template-columns:repeat(4,1fr); height:calc(100% - 37px);">
+          <div class="def-item">
+            <div class="def-name"><span class="badge b-pipeline">Pipeline</span></div>
+            <div class="def-text" style="margin-top:8px;">The project has been publicly announced or included in a government investment plan, but formal procurement has not yet commenced.</div>
+            <div style="margin-top:14px;"><div class="detail-title">Recommended Action</div><div class="def-text">Early positioning, teaming discussions and relationship-building with the client body. Begin sector and client intelligence gathering. Respond to any published market engagement exercises.</div></div>
+          </div>
+          <div class="def-item">
+            <div class="def-name"><span class="badge b-procurement">Procurement</span></div>
+            <div class="def-text" style="margin-top:8px;">Actively in a pre-tender or tender preparation phase. Pre-Qualification Questionnaires (PQQs), Expressions of Interest (EOIs), or Invitations to Tender (ITTs) have been issued or are imminent.</div>
+            <div style="margin-top:14px;"><div class="detail-title">Recommended Action</div><div class="def-text">Active monitoring — respond to PQQ/EOI, finalise teaming, prepare capability statement and begin win strategy development. This is the recommended action window.</div></div>
+          </div>
+          <div class="def-item">
+            <div class="def-name"><span class="badge b-live">Live Tender</span></div>
+            <div class="def-text" style="margin-top:8px;">A formal tender is currently open for submission. The opportunity is time-critical — a deadline is active and bid preparation should begin immediately if GIA has not already engaged.</div>
+            <div style="margin-top:14px;"><div class="detail-title">Recommended Action</div><div class="def-text">Begin bid preparation immediately. Confirm team, review ITT documents, register intent and assign BD resource. A pre-existing client relationship is typically needed to compete effectively.</div></div>
+          </div>
+          <div class="def-item">
+            <div class="def-name"><span class="badge b-awarded">Awarded</span></div>
+            <div class="def-text" style="margin-top:8px;">The contract has been publicly awarded. Included for market intelligence — not an active bid opportunity for GIA.</div>
+            <div style="margin-top:14px;"><div class="detail-title">Intelligence Value</div><div class="def-text">Understand competitor wins, typical award values, client preferences and programme durations. May indicate follow-on packages, variations or repeat procurements in the near term.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 08 — URGENCY ════════════════════════════ -->
+<div class="slide" id="slide-8">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">08 — URGENCY CLASSIFICATION</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn active">Definitions</span>
+    </div>
+    <div class="full-pad" style="flex-direction:row;">
+      <div class="result-card flex1">
+        <div class="card-header">
+          <div class="card-score-col">
+            <div class="score-ring">
+              <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#FF5252" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:0"/></svg>
+              <div class="score-label" style="color:#FF5252">!</div>
+            </div>
+            <div class="score-text">Urgency</div>
+          </div>
+          <div class="card-main">
+            <div class="card-badges"><span class="badge b-high">High</span><span class="badge b-region">≤ 90 Days</span></div>
+            <div class="card-title">High Urgency</div>
+            <div class="card-client">Live or imminent tender — closing window</div>
+          </div>
+        </div>
+        <div class="card-body single">
+          <div>
+            <div class="detail-title">Definition</div>
+            <div class="detail-text">A live or imminent tender with a deadline within approximately 90 days, or a programme where the window for client engagement is closing rapidly. Requires immediate attention — likely a pre-existing relationship with the client is needed to compete effectively.</div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="detail-title">Typical Characteristics</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="sector-kw">ITT Published</span><span class="sector-kw">Deadline Confirmed</span><span class="sector-kw">Active Bid Required</span><span class="sector-kw">Escalate to BD</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="result-card flex1">
+        <div class="card-header">
+          <div class="card-score-col">
+            <div class="score-ring">
+              <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#FFAB40" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:0"/></svg>
+              <div class="score-label" style="color:#FFAB40">~</div>
+            </div>
+            <div class="score-text">Urgency</div>
+          </div>
+          <div class="card-main">
+            <div class="card-badges"><span class="badge b-medium">Medium</span><span class="badge b-region">3 – 9 Months</span></div>
+            <div class="card-title">Medium Urgency</div>
+            <div class="card-client">Procurement underway — recommended action window</div>
+          </div>
+        </div>
+        <div class="card-body single">
+          <div>
+            <div class="detail-title">Definition</div>
+            <div class="detail-text">Procurement is underway or expected within 3–9 months. Sufficient time to complete pre-qualification, initiate teaming discussions, and develop a pursuit strategy. This is the recommended action window — early enough to shape the outcome.</div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="detail-title">Typical Characteristics</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="sector-kw">PQQ Imminent</span><span class="sector-kw">EOI Issued</span><span class="sector-kw">Teaming Required</span><span class="sector-kw">Client Engagement</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="result-card flex1">
+        <div class="card-header">
+          <div class="card-score-col">
+            <div class="score-ring">
+              <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#7C4DFF" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:0"/></svg>
+              <div class="score-label" style="color:#7C4DFF">—</div>
+            </div>
+            <div class="score-text">Urgency</div>
+          </div>
+          <div class="card-main">
+            <div class="card-badges"><span class="badge b-low">Low</span><span class="badge b-region">&gt; 9 Months</span></div>
+            <div class="card-title">Low Urgency</div>
+            <div class="card-client">Pipeline or early-stage — long-range positioning</div>
+          </div>
+        </div>
+        <div class="card-body single">
+          <div>
+            <div class="detail-title">Definition</div>
+            <div class="detail-text">A pipeline or early-stage opportunity with procurement expected beyond 9 months, or a recently awarded contract flagged for market intelligence. Valuable for long-range positioning, capability development and sector knowledge investment.</div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="detail-title">Typical Characteristics</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="sector-kw">Pipeline Stage</span><span class="sector-kw">Awarded Intel</span><span class="sector-kw">Long-Range</span><span class="sector-kw">Monitor &amp; Track</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 09 — GIA FIT ASSESSMENT ════════════════ -->
+<div class="slide" id="slide-9">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">09 — GIA FIT ASSESSMENT</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn active">Definitions</span>
+    </div>
+    <div class="full-pad" style="flex-direction:row; gap:14px;">
+      <div class="col flex1">
+        <div class="defs-section flex1">
+          <div class="defs-section-title">GIA Fit Assessment — Four Scoring Dimensions</div>
+          <div class="defs-grid" style="grid-template-columns:repeat(2,1fr);">
+            <div class="def-item">
+              <div class="def-name">Sector Fit <span class="def-chip b-cyan">0 – 100</span></div>
+              <div class="def-text">How well the opportunity aligns with GIA's 7 sector specialisms. A score of 100 means the opportunity sits squarely in GIA's core offering. Low scores indicate peripheral adjacencies or out-of-scope sectors.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">Scale Fit <span class="def-chip b-cyan">0 – 100</span></div>
+              <div class="def-text">Whether the project scale (value, complexity, duration) is appropriate for GIA's capacity and track record. Very small packages and very large programmes where GIA would be a sub-tier advisor score lower.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">Geography Fit <span class="def-chip b-cyan">0 – 100</span></div>
+              <div class="def-text">GIA's existing presence, relationships and market knowledge in the project's region. Established markets (UK, Europe, GCC, Southeast Asia) score higher than frontier markets where GIA has limited prior engagement.</div>
+            </div>
+            <div class="def-item">
+              <div class="def-name">Win Probability <span class="def-chip b-cyan">0 – 100</span></div>
+              <div class="def-text">The AI's estimate of likelihood given sector fit, geography, competition level, procurement type and stage. Indicative only — does not account for incumbent advantages, specific client relationships, or internal resource availability.</div>
+            </div>
+          </div>
+        </div>
+        <div class="result-card" style="flex-shrink:0;">
+          <div class="card-header" style="padding-bottom:10px;">
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-cyan">Assessment Verdict</span></div>
+              <div class="card-title-sm">One-sentence qualitative recommendation synthesising the four scores</div>
+            </div>
+          </div>
+          <div class="card-body single" style="padding-top:10px;">
+            <div class="gia-verdict" style="margin:0;padding:0;border:none;"><strong>Verdict options: </strong>Pursue actively — strong alignment across all four dimensions. / Monitor — sector and scale fit strong but geography is a constraint. / Deprioritise — peripheral sector alignment or insufficient scale for GIA engagement.</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:0 0 340px; display:flex; flex-direction:column; gap:12px;">
+        <div class="result-card expanded">
+          <div class="card-header">
+            <div class="card-score-col">
+              <div class="score-ring">
+                <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#2e3852"/><circle cx="22" cy="22" r="17" fill="none" stroke-width="3" stroke="#00E676" stroke-linecap="round" style="stroke-dasharray:106.81;stroke-dashoffset:12.82"/></svg>
+                <div class="score-label" style="color:#00E676">88</div>
+              </div>
+              <div class="score-text">Relevance</div>
+            </div>
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-live">Live Tender</span><span class="badge b-high">High</span></div>
+              <div class="card-title-sm">Riyadh Metro Phase 2</div>
+              <div class="card-client">Arriyadh Development Authority · £4.2bn</div>
+            </div>
+          </div>
+          <div class="card-body single">
+            <div class="gia-panel">
+              <div class="gia-title">◎ GIA Fit Assessment</div>
+              <div class="gia-grid">
+                <div><div class="gia-item-label">Sector Fit</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:92%"></div></div><div class="gia-item-val">92%</div></div>
+                <div><div class="gia-item-label">Scale Fit</div><div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:85%"></div></div><div class="gia-item-val">85%</div></div>
+                <div><div class="gia-item-label">Geography</div><div class="gia-bar-wrap"><div class="gia-bar gb-medium" style="width:74%"></div></div><div class="gia-item-val">74%</div></div>
+                <div><div class="gia-item-label">Win Prob.</div><div class="gia-bar-wrap"><div class="gia-bar gb-medium" style="width:68%"></div></div><div class="gia-item-val">68%</div></div>
+              </div>
+              <div class="gia-verdict"><strong>Assessment: </strong>Pursue actively — strong sector and scale alignment. Consider a local GCC partner to strengthen geography and client access before ITT submission.</div>
+            </div>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:3px;padding:10px 12px;">
+          <div style="font-size:10px;color:var(--tm);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Bar Colour Scale</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;align-items:center;gap:10px;font-size:10px;color:var(--ts);"><div class="gia-bar-wrap" style="flex:1;"><div class="gia-bar gb-high" style="width:80%"></div></div>≥ 70% — High</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:10px;color:var(--ts);"><div class="gia-bar-wrap" style="flex:1;"><div class="gia-bar gb-medium" style="width:55%"></div></div>45–69% — Medium</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:10px;color:var(--ts);"><div class="gia-bar-wrap" style="flex:1;"><div class="gia-bar gb-low" style="width:35%"></div></div>&lt; 45% — Low</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 10 — PROCUREMENT SOURCES ═══════════════ -->
+<div class="slide" id="slide-10">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">10 — PROCUREMENT SOURCES</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="statsbar">
+    <div class="stat-item"><span class="stat-label">Total Sources</span><span class="stat-value sv-cyan">650+</span></div>
+    <div class="stat-item"><span class="stat-label">Source Categories</span><span class="stat-value sv-cyan">25+</span></div>
+    <div class="stat-item"><span class="stat-label">Government Portals</span><span class="stat-value sv-green">170+</span></div>
+    <div class="stat-item"><span class="stat-label">Operators &amp; Agencies</span><span class="stat-value sv-amber">200+</span></div>
+    <div class="stat-item"><span class="stat-label">Press &amp; Intelligence</span><span class="stat-value sv-ts" style="color:var(--ts)">120+</span></div>
+  </div>
+  <div class="content-panel">
+    <div class="tab-bar">
+      <span class="tab-btn">Results</span><span class="tab-btn">Map</span><span class="tab-btn active">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn">Definitions</span>
+    </div>
+    <div class="full-pad" style="flex-direction:row; flex-wrap:wrap; gap:10px; overflow:hidden;">
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; width:100%; height:100%;">
+        <div class="source-group">
+          <span class="source-cat-label">UK &amp; Ireland Government</span>
+          <div class="source-item"><span class="src-num">7</span><div><div style="font-size:10px;color:var(--ts);">Find a Tender, Contracts Finder, PCS, Sell2Wales, eTenders IE, eTendersNI, CCS</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">European Government</span>
+          <div class="source-item"><span class="src-num">37</span><div><div style="font-size:10px;color:var(--ts);">TED/OJEU, BOAMP, DTVP, PLACSP, MePA, TenderNed, Doffin, HILMA + all EU member state portals</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Middle East Government</span>
+          <div class="source-item"><span class="src-num">14</span><div><div style="font-size:10px;color:var(--ts);">GCC Tenders, NEOM/ROSHN, Etimad KSA, UAE GP, Qatar MOF, Kuwait CTC, Bahrain, Oman, Jordan</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Africa Government</span>
+          <div class="source-item"><span class="src-num">25</span><div><div style="font-size:10px;color:var(--ts);">South Africa eTender, Kenya eGP, Ghana PPA, Morocco, Egypt, Nigeria BPP, Tanzania, Uganda, Rwanda</div></div></div>
+        </div>
+        <div class="source-group">
+          <span class="source-cat-label">Americas — USA Federal</span>
+          <div class="source-item"><span class="src-num">12</span><div><div style="font-size:10px;color:var(--ts);">SAM.gov, USASpending.gov, Grants.gov, FTA, FHWA, FRA, Army Corps of Engineers, NAVFAC, AFCEC</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">US State Portals</span>
+          <div class="source-item"><span class="src-num">50</span><div><div style="font-size:10px;color:var(--ts);">All 50 states — Alabama Bid Express through Wyoming Pro*West</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Canadian Provincial</span>
+          <div class="source-item"><span class="src-num">13</span><div><div style="font-size:10px;color:var(--ts);">BC Bid, Alberta Purchasing, SaskTenders, Ontario Tenders, SEAO Québec + territories</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Latin America &amp; Caribbean</span>
+          <div class="source-item"><span class="src-num">20</span><div><div style="font-size:10px;color:var(--ts);">ComprasNet Brazil, CompraNet Mexico, ChileCompra, SEACE Peru, SECOP Colombia + 15 others</div></div></div>
+        </div>
+        <div class="source-group">
+          <span class="source-cat-label">APAC — Australasia</span>
+          <div class="source-item"><span class="src-num">10</span><div><div style="font-size:10px;color:var(--ts);">AusTender, GETS NZ + all Australian state portals (NSW, Vic, Qld, WA, SA, Tas, ACT, NT)</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">APAC — Asia</span>
+          <div class="source-item"><span class="src-num">20</span><div><div style="font-size:10px;color:var(--ts);">GeBIZ Singapore, KONEPS Korea, GeM India, NHAI, HK Supply, JETRO Japan, PhilGEPS, ePerolehan</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Multilateral Banks</span>
+          <div class="source-item"><span class="src-num">18</span><div><div style="font-size:10px;color:var(--ts);">World Bank, ADB, AfDB, IDB, EBRD, EIB, UNGM, AIIB, IFC, IsDB, NDB, CAF, EADB, BOAD, CABEI</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Development &amp; Aid Agencies</span>
+          <div class="source-item"><span class="src-num">20</span><div><div style="font-size:10px;color:var(--ts);">JICA, KfW, AFD, GIZ, FCDO, USAID, MCC, BII, KOICA, DFAT, Sida, Danida, Norad, DGIS, AICS</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">UN Agencies</span>
+          <div class="source-item"><span class="src-num">10</span><div><div style="font-size:10px;color:var(--ts);">UNOPS, UN-Habitat, UNDP, UNICEF, WFP, WHO, UNECE, UNEP, UNCDF, UNIDO</div></div></div>
+        </div>
+        <div class="source-group">
+          <span class="source-cat-label">National Infrastructure Agencies</span>
+          <div class="source-item"><span class="src-num">35</span><div><div style="font-size:10px;color:var(--ts);">HS2, Network Rail, TfL, National Highways, Infrastructure NSW, LTA Singapore, MTR, NZTA, SANRAL, NHAI, Caltrans, TxDOT, FDOT, NYSDOT</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Rail &amp; Metro Operators</span>
+          <div class="source-item"><span class="src-num">42</span><div><div style="font-size:10px;color:var(--ts);">SNCF, DB InfraGO, ProRail, RFI, Adif, Amtrak, WMATA, MTA NY, LA Metro, RATP, Delhi Metro, China Railway, Tokyo Metro, Seoul Metro, Sydney Metro</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Port Authorities</span>
+          <div class="source-item"><span class="src-num">28</span><div><div style="font-size:10px;color:var(--ts);">Rotterdam, Antwerp-Bruges, Hamburg, MPA Singapore, JNPA Mumbai, Port of LA, NY&amp;NJ, Busan, Durban, Mombasa</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Airport Authorities</span>
+          <div class="source-item"><span class="src-num">30</span><div><div style="font-size:10px;color:var(--ts);">Heathrow, Gatwick, AENA, ADP Paris, Fraport, Schiphol, Changi, HKAA, LAWA, JFK, Dubai, Abu Dhabi</div></div></div>
+        </div>
+        <div class="source-group">
+          <span class="source-cat-label">Energy &amp; Water Utilities</span>
+          <div class="source-item"><span class="src-num">50</span><div><div style="font-size:10px;color:var(--ts);">National Grid, TenneT, Elia, Red Eléctrica, Enel, Iberdrola, Eskom, NTPC, KEPCO, Thames Water, Anglian, Severn Trent, Suez, Veolia, NextEra</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Project Finance &amp; ESG</span>
+          <div class="source-item"><span class="src-num">25</span><div><div style="font-size:10px;color:var(--ts);">IJGlobal*, Inframation*, PFI*, Preqin*, US IIJA Tracker, Global Infrastructure Hub, Green Climate Fund, UK Infrastructure Bank, EU Green Deal</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Industry Press &amp; Publications</span>
+          <div class="source-item"><span class="src-num">50</span><div><div style="font-size:10px;color:var(--ts);">GCR, New Civil Engineer, ENR, MEED*, Building, Construction News*, Railway Gazette, Mass Transit, Airport World, Port Technology, PV Magazine, GWI*</div></div></div>
+          <div style="height:8px;"></div>
+          <span class="source-cat-label">Lead Databases &amp; Research</span>
+          <div class="source-item"><span class="src-num">25</span><div><div style="font-size:10px;color:var(--ts);">Glenigan*, Barbour ABI*, Dodge*, Hubexo*, McKinsey Global Infrastructure, Oxford Economics, Arup Insights, Global Infrastructure Hub Research</div></div></div>
+          <div style="margin-top:10px; font-size:9px; color:var(--tm); letter-spacing:0.06em;">* Subscription required — accessed via publicly indexed excerpts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 11 — SCAN BEHAVIOUR ════════════════════ -->
+<div class="slide" id="slide-11">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">11 — SCAN BEHAVIOUR</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+  <div class="content-panel">
+    <div class="toolbar">
+      <span class="toolbar-title">How the Platform Operates — AI Query Behaviour &amp; Controls</span>
+      <div class="scan-btn">⟳&nbsp; Scan All Sectors</div>
+      <div class="action-btn">⊞ Save Results</div>
+      <div class="action-btn">↓ Export CSV</div>
+    </div>
+    <div class="tab-bar">
+      <span class="tab-btn active">Results</span><span class="tab-btn">Map</span><span class="tab-btn">Sources</span><span class="tab-btn">Sectors</span><span class="tab-btn">Definitions</span>
+    </div>
+    <div class="full-pad" style="flex-direction:row; gap:14px;">
+      <div class="col flex1" style="gap:12px;">
+        <div class="result-card">
+          <div class="card-header">
+            <div class="card-score-col">
+              <div style="font-size:24px;font-weight:800;color:var(--cyan);opacity:0.4;line-height:1;width:44px;text-align:center;">01</div>
+            </div>
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-cyan">Operation</span></div>
+              <div class="card-title-sm">Single Sector Scan</div>
+              <div class="card-client">Targeted query — one sector, one region</div>
+            </div>
+          </div>
+          <div class="card-body single" style="padding-top:10px;">
+            <div class="detail-text">Queries Gemini AI with Google Search grounding for a specific sector and region. Returns up to 20 current procurement opportunities with full field data — title, client, value, deadline, stage, urgency, GIA Fit Assessment. Each scan is independent — re-scanning overwrites the previous result set.</div>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="card-header">
+            <div class="card-score-col">
+              <div style="font-size:24px;font-weight:800;color:var(--cyan);opacity:0.4;line-height:1;width:44px;text-align:center;">02</div>
+            </div>
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-cyan">Operation</span></div>
+              <div class="card-title-sm">Scan All Sectors</div>
+              <div class="card-client">Sequential sweep — all 7 sectors</div>
+            </div>
+          </div>
+          <div class="card-body single" style="padding-top:10px;">
+            <div class="detail-text">Runs a sequential scan across all 7 sectors with a 4-second pause between each to avoid API rate limits. A full sweep takes approximately 35–50 seconds. Results accumulate across all sectors and can be saved to local storage or exported to CSV on completion.</div>
+          </div>
+        </div>
+      </div>
+      <div class="col flex1" style="gap:12px;">
+        <div class="result-card">
+          <div class="card-header">
+            <div class="card-score-col">
+              <div style="font-size:24px;font-weight:800;color:var(--amber);opacity:0.4;line-height:1;width:44px;text-align:center;">03</div>
+            </div>
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-medium">Control</span></div>
+              <div class="card-title-sm">Region Filter</div>
+              <div class="card-client">Geography constraint — 6 options</div>
+            </div>
+          </div>
+          <div class="card-body single" style="padding-top:10px;">
+            <div class="detail-text">Constrains the AI's search to a specific geography. Set to Global by default. Narrowing the region improves result precision but may reduce diversity of opportunities returned. Applies to both single-sector and full scans.</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;"><span class="sector-kw">Global</span><span class="sector-kw">UK &amp; Europe</span><span class="sector-kw">Middle East</span><span class="sector-kw">Asia Pacific</span><span class="sector-kw">Americas</span><span class="sector-kw">Africa</span></div>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="card-header">
+            <div class="card-score-col">
+              <div style="font-size:24px;font-weight:800;color:var(--amber);opacity:0.4;line-height:1;width:44px;text-align:center;">04</div>
+            </div>
+            <div class="card-main">
+              <div class="card-badges"><span class="badge b-medium">Control</span></div>
+              <div class="card-title-sm">Source Filtering</div>
+              <div class="card-client">Enable / disable individual sources</div>
+            </div>
+          </div>
+          <div class="card-body single" style="padding-top:10px;">
+            <div class="detail-text">The Sources tab lets you enable or disable individual procurement databases and publications from the 650+ source library. Enabled sources are listed explicitly in the AI prompt, instructing it to prioritise those channels. Disabling sources reduces — but does not guarantee exclusion of — results from other channels.</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:0 0 260px; display:flex; flex-direction:column; gap:10px;">
+        <div class="gia-panel" style="flex:1;">
+          <div class="gia-title">◎ AI Engine</div>
+          <div style="font-size:22px;font-weight:800;color:var(--cyan);letter-spacing:-0.01em;margin-bottom:4px;">Gemini 2.5 Flash</div>
+          <div style="font-size:11px;color:var(--ts);line-height:1.6;margin-bottom:12px;">With Google Search grounding — each scan queries live web-indexed content from enabled sources, returning real and current infrastructure procurement data.</div>
+          <div class="gia-item-label" style="margin-bottom:6px;">Temperature</div>
+          <div class="gia-bar-wrap"><div class="gia-bar gb-medium" style="width:70%"></div></div>
+          <div class="gia-item-val" style="margin-bottom:10px;">0.7 — balanced accuracy &amp; discovery</div>
+          <div class="gia-item-label" style="margin-bottom:6px;">Max Output Tokens</div>
+          <div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:100%"></div></div>
+          <div class="gia-item-val" style="margin-bottom:10px;">8,192 per scan</div>
+          <div class="gia-item-label" style="margin-bottom:6px;">Sources per Prompt</div>
+          <div class="gia-bar-wrap"><div class="gia-bar gb-high" style="width:100%"></div></div>
+          <div class="gia-item-val">Up to 60 named sources</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SLIDE 12 — CLOSING ════════════════════════════ -->
+<div class="slide" id="slide-12">
+  <div class="topbar">
+    <div class="topbar-logo">◈ GIA <span class="topbar-sub">/ Strategic Project Discovery</span></div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span class="topbar-meta">12 — END</span>
+      <button class="folder-btn" onclick="go(-1)">← Prev</button>
+      <button class="folder-btn" onclick="go(1)" disabled>Next →</button>
+    </div>
+  </div>
+  <div class="statsbar">
+    <div class="stat-item"><span class="stat-label">Procurement Sources</span><span class="stat-value sv-cyan">650+</span></div>
+    <div class="stat-item"><span class="stat-label">Target Sectors</span><span class="stat-value sv-cyan">7</span></div>
+    <div class="stat-item"><span class="stat-label">Source Categories</span><span class="stat-value sv-cyan">25+</span></div>
+    <div class="stat-item"><span class="stat-label">Min. Project Value</span><span class="stat-value sv-amber">$50M</span></div>
+    <div class="stat-item"><span class="stat-label">Global Regions</span><span class="stat-value sv-green">6</span></div>
+    <div class="stat-item"><span class="stat-label">AI Engine</span><span class="stat-value sv-green">Gemini 2.5 Flash</span></div>
+  </div>
+  <div class="main-layout" style="align-items:center; justify-content:center; flex-direction:column; gap:0;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;">
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--cyan);">Global Infrastructure Advisors</div>
+      <div style="font-size:52px;font-weight:800;color:var(--tp);letter-spacing:-0.03em;line-height:1.0;">Strategic Project<br>Discovery</div>
+      <div style="font-size:14px;color:var(--ts);line-height:1.7;max-width:560px;">Powered by Gemini AI with Google Search grounding.<br>Scanning 650+ global procurement sources across 7 infrastructure sectors.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px;">
+        <span class="badge b-live">High Speed Rail &amp; Metro</span>
+        <span class="badge b-pipeline">Transit-Oriented Development</span>
+        <span class="badge b-procurement">Urban Regeneration</span>
+        <span class="badge b-low">Data Centres</span>
+        <span class="badge b-region">Ports &amp; Maritime</span>
+        <span class="badge b-region">Mega Projects</span>
+        <span class="badge b-green">Energy, Water &amp; Sustainability</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<div class="nav-bar" id="nav">
+  <button class="folder-btn" id="nb-prev" onclick="go(-1)" disabled>← Prev</button>
+  <span class="nav-counter" id="nav-count">1 / 12</span>
+  <button class="folder-btn" id="nb-next" onclick="go(1)">Next →</button>
+</div>
+
+<script>
+const TOTAL = 12;
+let cur = 1;
+function go(d) {
+  document.getElementById('slide-' + cur).classList.remove('active');
+  cur = Math.max(1, Math.min(TOTAL, cur + d));
+  document.getElementById('slide-' + cur).classList.add('active');
+  document.getElementById('nav-count').textContent = cur + ' / ' + TOTAL;
+  document.getElementById('nb-prev').disabled = cur === 1;
+  document.getElementById('nb-next').disabled = cur === TOTAL;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(-1);
+});
+</script>
+</body>
+</html>
