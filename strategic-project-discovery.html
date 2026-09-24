@@ -30,6 +30,25 @@
   .topbar-meta { font-size:10px; color:var(--tm); }
   .folder-btn { padding:4px 10px; cursor:pointer; background:transparent; border:1px solid var(--bd); color:var(--tm); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; border-radius:2px; transition:all 0.15s; white-space:nowrap; }
   .folder-btn:hover { border-color:var(--bdb); color:var(--ts); }
+  .folder-btn { display:flex; align-items:center; gap:4px; }
+
+  /* Demo mode */
+  .mode-pill { font-size:10px; font-weight:600; letter-spacing:0.12em; padding:4px 8px; border-radius:2px; }
+  .mode-demo { color:var(--amber); background:var(--amberD); border:1px solid rgba(255,171,64,0.35); }
+  .demo-banner { display:flex; align-items:center; gap:10px; padding:8px 20px; background:var(--amberD); border-bottom:1px solid rgba(255,171,64,0.25); color:var(--amber); font-size:12px; line-height:1.4; flex-shrink:0; }
+  .demo-banner span { flex:1; }
+  .demo-banner-btn { padding:4px 10px; cursor:pointer; background:transparent; border:1px solid rgba(255,171,64,0.5); color:var(--amber); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; border-radius:2px; white-space:nowrap; }
+  .demo-banner-btn:hover { background:rgba(255,171,64,0.18); }
+  .key-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:2000; padding:16px; }
+  .key-modal { width:100%; max-width:460px; background:var(--bg2); border:1px solid var(--bdb); border-radius:4px; padding:20px; display:flex; flex-direction:column; gap:12px; }
+  .key-title { font-size:13px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--cyan); }
+  .key-text { font-size:12px; line-height:1.55; color:var(--ts); }
+  .key-text a { color:var(--cyan); }
+  .key-input { width:100%; padding:9px 10px; background:var(--bg0); border:1px solid var(--bd); border-radius:2px; color:var(--tp); font-family:var(--mono); font-size:12px; }
+  .key-input:focus { outline:none; border-color:var(--cyan); }
+  .key-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .key-save { border-color:var(--cyan); color:var(--cyan); }
+  .key-save:disabled { opacity:0.4; cursor:not-allowed; }
 
   .statsbar { display:flex; background:var(--bg1); border-bottom:1px solid var(--bd); flex-shrink:0; overflow-x:auto; }
   .stat-item { display:flex; align-items:center; gap:10px; padding:8px 20px; border-right:1px solid var(--bd); white-space:nowrap; }
@@ -207,6 +226,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="demo-data.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css"/>
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css"/>
@@ -237,7 +257,19 @@ function Ph({name, size=14, style}) {
 }
 
 const GEMINI_KEY = "YOUR_GEMINI_API_KEY";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const KEY_STORE = 'gia_gemini_key';
+
+// A key saved in this browser wins; otherwise use the hardcoded one if it's been filled in.
+// With no key the app runs in demo mode on the sample data in demo-data.js.
+function getGeminiKey() {
+  try { const k = localStorage.getItem(KEY_STORE); if (k) return k; } catch(e) {}
+  return GEMINI_KEY && GEMINI_KEY !== 'YOUR_GEMINI_API_KEY' ? GEMINI_KEY : '';
+}
+function setGeminiKey(k) {
+  try { k ? localStorage.setItem(KEY_STORE, k) : localStorage.removeItem(KEY_STORE); } catch(e) {}
+}
+const isDemo = () => !getGeminiKey();
 
 const SECTORS = [
   { id:'hsr',  name:'High Speed Rail & Metro',              icon:'TramFront' },
@@ -975,7 +1007,17 @@ const SECTOR_HINTS = {
   'Mega Projects & National Programmes': 'Focus on new cities, economic zones, national infrastructure pipelines, government programme management appointments, and major event infrastructure.',
 };
 
+async function fetchDemoOpportunities(sectorName, region) {
+  await new Promise(r => setTimeout(r, 900 + Math.random() * 700));
+  const sector = SECTORS.find(s => s.name === sectorName);
+  const all = (window.DEMO_OPPORTUNITIES || {})[sector?.id] || [];
+  return all.filter(o => region === 'Global' || o.regionGroup === region).map(o => ({...o}));
+}
+
 async function fetchOpportunities(sectorName, region, enabledSources) {
+  const key = getGeminiKey();
+  if (!key) return fetchDemoOpportunities(sectorName, region);
+
   // Cap source list to 60 names to keep prompt within Gemini token limits
   const sourceSample = enabledSources.length
     ? enabledSources.slice(0, 60).map(s => s.name).join(', ')
@@ -1008,7 +1050,7 @@ Each object must have ALL these fields:
 
   const res = await fetch(GEMINI_URL, {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json','x-goog-api-key':key},
     body: JSON.stringify({
       contents:[{parts:[{text:prompt}]}],
       tools:[{google_search:{}}],
@@ -1403,6 +1445,32 @@ function DefinitionsPanel() {
   );
 }
 
+function KeyModal({onSave, onClose, hasKey}) {
+  const [val,setVal] = useState('');
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+  return React.createElement('div', {className:'key-overlay', onMouseDown:e=>{ if (e.target===e.currentTarget) onClose(); }},
+    React.createElement('div', {className:'key-modal', role:'dialog', 'aria-modal':'true', 'aria-labelledby':'key-title'},
+      React.createElement('div', {className:'key-title', id:'key-title'}, 'Gemini API key'),
+      React.createElement('p', {className:'key-text'},
+        'Live searches use Gemini 2.5 Flash with Google Search grounding, billed to your key. Get one at ',
+        React.createElement('a', {href:'https://aistudio.google.com/apikey', target:'_blank', rel:'noopener'}, 'aistudio.google.com/apikey'), '.'),
+      React.createElement('p', {className:'key-text'}, 'Your key is stored only in this browser and is sent only to Google’s Gemini API.'),
+      React.createElement('input', {className:'key-input', type:'password', autoFocus:true, placeholder:hasKey?'Enter a new key to replace the saved one':'Paste your API key',
+        value:val, onChange:e=>setVal(e.target.value), onKeyDown:e=>{ if (e.key==='Enter' && val.trim()) onSave(val.trim()); }}),
+      React.createElement('div', {className:'key-actions'},
+        hasKey && React.createElement('button', {className:'action-btn', onClick:()=>onSave('')}, 'Remove key (back to demo)'),
+        React.createElement('div', {style:{flex:1}}),
+        React.createElement('button', {className:'action-btn', onClick:onClose}, 'Cancel'),
+        React.createElement('button', {className:'action-btn key-save', disabled:!val.trim(), onClick:()=>onSave(val.trim())}, 'Save key')
+      )
+    )
+  );
+}
+
 function App() {
   const [active,setActive] = useState(null);
   const [region,setRegion] = useState('Global');
@@ -1414,8 +1482,16 @@ function App() {
   const [sources,setSources] = useState(ALL_SOURCES.map(s=>({...s,enabled:true})));
   const [saveFlash,setSaveFlash] = useState(false);
   const [showLoad,setShowLoad] = useState(false);
-  const [savedSearches,setSavedSearches] = useState(()=>JSON.parse(localStorage.getItem('gia_searches')||'[]'));
+  const [savedSearches,setSavedSearches] = useState(()=>{ try { return JSON.parse(localStorage.getItem('gia_searches')||'[]'); } catch(e) { return []; } });
+  const [demo,setDemo] = useState(isDemo);
+  const [showKey,setShowKey] = useState(false);
   const loadRef = useRef(null);
+
+  const applyKey = useCallback((k) => {
+    setGeminiKey(k);
+    setDemo(isDemo());
+    setResults({}); setActive(null); setError(null); setShowKey(false);
+  }, []);
 
   useEffect(() => {
     if (!showLoad) return;
@@ -1448,7 +1524,7 @@ function App() {
     try {
       const o = await fetchOpportunities(s.name, region, enabledSources);
       setResults(r=>({...r,[s.id]:o}));
-      autoDownload(s.name, o);
+      if (!isDemo()) autoDownload(s.name, o);
     }
     catch(e) { setError(e.message); }
     finally { setScanning(null); }
@@ -1461,20 +1537,21 @@ function App() {
       try{
         const o=await fetchOpportunities(s.name,region,enabledSources);
         setResults(r=>({...r,[s.id]:o}));
-        autoDownload(s.name, o);
+        if (!isDemo()) autoDownload(s.name, o);
       }catch(e){}
       setScanning(null);
-      if(i<SECTORS.length-1) await new Promise(r=>setTimeout(r,4000));
+      if(i<SECTORS.length-1) await new Promise(r=>setTimeout(r,isDemo()?250:4000));
     }
     setProgress(null);
   }, [region, enabledSources, autoDownload]);
 
   const handleSave = useCallback(() => {
     // Save to localStorage for Load button
-    const searches = JSON.parse(localStorage.getItem('gia_searches')||'[]');
-    searches.unshift({id:Date.now(), label:`${region} · ${new Date().toLocaleDateString()}`, region, results, savedAt:new Date().toISOString()});
+    let searches = [];
+    try { searches = JSON.parse(localStorage.getItem('gia_searches')||'[]'); } catch(e) {}
+    searches.unshift({id:Date.now(), label:`${demo?'Sample · ':''}${region} · ${new Date().toLocaleDateString()}`, region, results, savedAt:new Date().toISOString()});
     const updated = searches.slice(0,10);
-    localStorage.setItem('gia_searches', JSON.stringify(updated));
+    try { localStorage.setItem('gia_searches', JSON.stringify(updated)); } catch(e) {}
     setSavedSearches(updated);
     // Download all current results as a single JSON file
     const now = new Date();
@@ -1490,7 +1567,7 @@ function App() {
     URL.revokeObjectURL(url);
     setSaveFlash(true);
     setTimeout(()=>setSaveFlash(false), 2000);
-  }, [results, region]);
+  }, [results, region, demo]);
 
   const handleLoad = useCallback((search) => {
     setResults(search.results);
@@ -1513,10 +1590,22 @@ function App() {
         React.createElement('span', {className:'topbar-sub'}, 'Strategic Project Discovery')
       ),
       React.createElement('div', {className:'topbar-right'},
-        React.createElement('div', {className:'live-dot'}),
-        React.createElement('div', {className:'topbar-meta'}, 'POWERED BY AI · '+today)
+        demo
+          ? React.createElement('div', {className:'mode-pill mode-demo'}, 'DEMO · SAMPLE DATA')
+          : React.createElement(React.Fragment, null,
+              React.createElement('div', {className:'live-dot'}),
+              React.createElement('div', {className:'topbar-meta'}, 'LIVE · GEMINI · '+today)
+            ),
+        React.createElement('button', {className:'folder-btn', onClick:()=>setShowKey(true)},
+          React.createElement(Icon,{name:'KeyRound',size:11}), demo ? ' Use your Gemini key' : ' API key')
       )
     ),
+    demo && React.createElement('div', {className:'demo-banner'},
+      React.createElement(Icon,{name:'Info',size:13}),
+      React.createElement('span', null, 'You’re viewing sample data: every opportunity here is fictional and for illustration only. Add a Gemini API key to run live AI searches of real procurement sources.'),
+      React.createElement('button', {className:'demo-banner-btn', onClick:()=>setShowKey(true)}, 'Add key')
+    ),
+    showKey && React.createElement(KeyModal, {onSave:applyKey, onClose:()=>setShowKey(false), hasKey:!demo}),
     React.createElement('div', {className:'main-layout'},
       React.createElement('div', {className:'sidebar'},
         React.createElement('div', {className:'sidebar-header'}, 'Infrastructure Sectors'),
